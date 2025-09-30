@@ -46,7 +46,7 @@ class Command:
     callback: Optional[Callable] = None
 
 
-class StreamEngine:
+class CortexEngine:
     """
     Main application controller that runs independently.
     Can operate headless or with GUI attached.
@@ -446,7 +446,7 @@ class StreamEngine:
         return self.config.copy()
 
 
-class HeadlessStreamEngine(StreamEngine):
+class HeadlessCortexEngine(CortexEngine):
     """
     Headless version that can run without any GUI.
     Perfect for server deployments, background processing, etc.
@@ -494,7 +494,7 @@ def example_headless_usage():
     }
 
     # Create headless engine
-    engine = HeadlessStreamEngine(board, config)
+    engine = HeadlessCortexEngine(board, config)
 
     # Register callbacks for monitoring
     def data_monitor(data: StreamData):

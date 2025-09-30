@@ -4,7 +4,7 @@ GUI Adapter - Connects StreamEngine service to PyQt GUI
 
 import logging
 from PyQt5 import QtCore, QtWidgets
-from opencortex.neuroengine.core.stream_engine import StreamEngine, StreamData
+from opencortex.neuroengine.core.cortex_engine import CortexEngine, StreamData
 from typing import Dict, Any
 
 
@@ -24,7 +24,7 @@ class GUIAdapter(QtCore.QObject):
     inference_mode_changed = QtCore.pyqtSignal(bool)
     trigger_sent = QtCore.pyqtSignal(int, float)
 
-    def __init__(self, stream_engine: StreamEngine):
+    def __init__(self, stream_engine: CortexEngine):
         super().__init__()
         self.stream_engine = stream_engine
 
