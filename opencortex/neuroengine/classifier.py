@@ -53,7 +53,7 @@ class Classifier:
     Classifier class to train and evaluate custom models on EEG data
     """
 
-e    def __init__(self, model, board_id, ch_names=None):
+    def __init__(self, model, board_id, ch_names=None):
         if model is None:
             raise ValueError("Model cannot be None")
         self.model = models[model]
