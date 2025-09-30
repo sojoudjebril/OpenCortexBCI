@@ -15,7 +15,7 @@ import os
 import yaml
 from PyQt5 import QtWidgets, QtCore
 from opencortex.neuroengine.classifier import Classifier
-from opencortex.neuroengine.core.stream_engine import StreamEngine
+from opencortex.neuroengine.core.cortex_engine import CortexEngine
 from opencortex.neuroengine.flux.base import Parallel
 from opencortex.neuroengine.flux.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
@@ -53,7 +53,7 @@ class StreamerGUI:
         time.sleep(window_size)  # Wait for the board to be ready
 
         # 1. Create and start StreamEngine service
-        self.stream_engine = StreamEngine(board, config, window_size)
+        self.stream_engine = CortexEngine(board, config, window_size)
         self.stream_engine.start()  # Start the service
 
         # 2. Create GUI adapter

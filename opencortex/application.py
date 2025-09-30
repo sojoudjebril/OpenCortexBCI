@@ -8,7 +8,7 @@ from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 from opencortex.neuroengine.gui.gui_adapter import GUIAdapter
 from opencortex.neuroengine.setup_dialog import SetupDialog, retrieve_board_id, retrieve_eeg_devices
 from opencortex.neuroengine.streamer_gui import StreamerGUI
-from opencortex.neuroengine.core.stream_engine import StreamEngine, HeadlessStreamEngine
+from opencortex.neuroengine.core.cortex_engine import CortexEngine, HeadlessCortexEngine
 
 logging_levels = {0: logging.NOTSET, 1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR,
                   5: logging.CRITICAL}
@@ -95,7 +95,7 @@ def run_headless():
         board_shim.start_stream(streamer_params=args.streamer_params)
 
         # Create headless StreamEngine
-        engine = HeadlessStreamEngine(board_shim, config, args.window_size, args.log_file)
+        engine = HeadlessCortexEngine(board_shim, config, args.window_size, args.log_file)
 
         # Add monitoring callbacks
         def data_monitor(data):
@@ -280,7 +280,7 @@ class StreamerGUIService:
         logging.info("Initializing StreamerGUI with service architecture")
 
         # ============ CREATE STREAMENGINE SERVICE ============
-        self.stream_engine = StreamEngine(board, config, window_size)
+        self.stream_engine = CortexEngine(board, config, window_size)
         self.stream_engine.start()
         logging.info("StreamEngine service started")
 

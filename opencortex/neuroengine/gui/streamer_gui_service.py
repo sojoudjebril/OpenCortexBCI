@@ -2,7 +2,7 @@ import logging
 
 from PyQt5 import QtWidgets
 
-from opencortex.neuroengine.core.stream_engine import StreamEngine
+from opencortex.neuroengine.core.cortex_engine import CortexEngine
 from opencortex.neuroengine.gui.gui_adapter import GUIAdapter
 
 
@@ -21,7 +21,7 @@ class StreamerGUIService:
 
         logging.info("Initializing StreamerGUI with service architecture")
 
-        self.stream_engine = StreamEngine(board, config, window_size)
+        self.stream_engine = CortexEngine(board, config, window_size)
         self.stream_engine.start()
         logging.info("StreamEngine service started")
 
