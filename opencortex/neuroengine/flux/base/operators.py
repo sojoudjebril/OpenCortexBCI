@@ -1,7 +1,7 @@
 # operators.py
-from node import Node
-from sequential import Sequential
-from parallel import Parallel
+from opencortex.neuroengine.flux.base.node import Node
+from opencortex.neuroengine.flux.base.sequential import Sequential
+from opencortex.neuroengine.flux.base.parallel import Parallel
 
 def _rshift(self: Node, other: Node) -> Sequential:
     """Chain nodes: node1 >> node2"""
