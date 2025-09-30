@@ -14,7 +14,7 @@ import pylsl
 import numpy as np
 from datetime import datetime
 from PyQt5.QtCore import QThread, pyqtSignal
-from pylsl import resolve_stream, StreamInlet, StreamOutlet
+from pylsl import resolve_byprop, StreamInlet, StreamOutlet
 from opencortex.processing.proc_helper import freq_bands
 
 
@@ -81,7 +81,7 @@ def connect_lsl_marker_stream(stream_name='CortexMarkers', type='Markers'):
     :return: StreamInlet object
     """
     try:
-        streams = resolve_stream('name', stream_name)
+        streams = resolve_byprop('name', stream_name)
         inlet = StreamInlet(streams[0],
                             processing_flags=pylsl.proc_clocksync | pylsl.proc_dejitter | pylsl.proc_threadsafe)
         logging.info(f"LSL stream connected {streams[0].name()}")
