@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from brainflow.board_shim import BoardShim, BoardIds
 
 from opencortex.neuroengine.classifier import Classifier
-from opencortex.neuroengine.flux.base import Parallel
+from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
 from opencortex.neuroengine.network.lsl_stream import (

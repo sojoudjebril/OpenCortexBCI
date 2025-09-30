@@ -16,7 +16,7 @@ import yaml
 from PyQt5 import QtWidgets, QtCore
 from opencortex.neuroengine.classifier import Classifier
 from opencortex.neuroengine.core.cortex_engine import CortexEngine
-from opencortex.neuroengine.flux.base import Parallel
+from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
 from opencortex.neuroengine.gui.frequency_band_widget import FrequencyBandPanel

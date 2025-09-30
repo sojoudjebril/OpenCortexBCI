@@ -1,7 +1,5 @@
-
 import numpy as np
-
-from opencortex.neuroengine.flux.base import Node
+from opencortex.neuroengine.flux.base.node import Node
 
 
 class QualityEstimator(Node):
