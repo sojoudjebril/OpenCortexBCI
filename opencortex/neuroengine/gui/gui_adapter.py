@@ -68,6 +68,10 @@ class GUIAdapter(QtCore.QObject):
         """Start classifier training"""
         self.stream_engine.send_command('train_classifier')
 
+    def plot_cm(self):
+        """Plot confusion matrix"""
+        self.stream_engine.send_command('plot_cm')
+
     def configure_filters(self, filter_config: Dict):
         """Configure data filters"""
         self.stream_engine.send_command('configure_filters', filter_config)

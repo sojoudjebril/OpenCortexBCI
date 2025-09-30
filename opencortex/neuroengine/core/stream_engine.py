@@ -60,8 +60,18 @@ class StreamEngine:
         # Core properties
         self.board_id = self.board.get_board_id()
         self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
+        try:
+            self.eeg_names = BoardShim.get_eeg_names(self.board_id)
+        except Exception as e:
+            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
+            self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.num_points = self.window_size * self.sampling_rate
+        try:
+            self.eeg_names = BoardShim.get_eeg_names(self.board_id)
+        except Exception as e:
+            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
+            self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"],
 
         # Engine state
         self.running = False
@@ -83,7 +93,7 @@ class StreamEngine:
 
         # Processing pipeline
         self.pipeline = Parallel(
-            band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_channels),
+            band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names),
             quality=QualityEstimator(quality_thresholds=self.quality_thresholds)
         )
 
@@ -124,16 +134,15 @@ class StreamEngine:
     def _init_lsl_outlets(self):
         """Initialize LSL output streams."""
         device_name = self.board.get_device_name(self.board_id)
-        eeg_names = BoardShim.get_eeg_names(self.board_id)
 
         self.eeg_outlet = start_lsl_eeg_stream(
-            channels=eeg_names, fs=self.sampling_rate, source_id=device_name)
+            channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
         self.inference_outlet = start_lsl_inference_stream(
             channels=1, fs=self.sampling_rate, source_id=device_name)
         self.band_powers_outlet = start_lsl_power_bands_stream(
-            channels=eeg_names, fs=self.sampling_rate, source_id=device_name)
+            channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
         self.quality_outlet = start_lsl_quality_stream(
-            channels=eeg_names, fs=self.sampling_rate, source_id=device_name)
+            channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
 
     # ===================== MAIN ENGINE CONTROL =====================
 
@@ -301,6 +310,8 @@ class StreamEngine:
                 self._send_trigger(params.get('trigger', 1), params.get('timestamp', 0))
             elif action == 'train_classifier':
                 self._train_classifier(params.get('data'))
+            elif action == 'plot_cm':
+                self._plot_cm_async()
             elif action == 'predict':
                 self._predict_class()
             elif action == 'configure_filters':
@@ -322,7 +333,7 @@ class StreamEngine:
     def _init_classifier(self):
         """Initialize the classifier."""
         try:
-            self.classifier = Classifier(model=self.model, board_id=self.board_id)
+            self.classifier = Classifier(model=self.model, board_id=self.board_id, ch_names=self.eeg_names)
             self._notify_event('classifier_ready', {})
             logging.info(f"Classifier {self.model} initialized")
         except Exception as e:
@@ -380,6 +391,16 @@ class StreamEngine:
         except Exception as e:
             logging.error(f"Training error: {e}")
             self._notify_event('error', {'message': f"Training failed: {e}"})
+
+    def _plot_cm_async(self):
+        """Plot confusion matrix asynchronously."""
+        try:
+            self.classifier.plot_confusion_matrix()
+            self._notify_event('cm_plotted', {})
+            logging.info("Confusion matrix plotted")
+        except Exception as e:
+            logging.error(f"Error plotting confusion matrix: {e}")
+            self._notify_event('error', {'message': f"CM plot failed: {e}"})
 
     def _predict_class(self):
         """Predict class."""

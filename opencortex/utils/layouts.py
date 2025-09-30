@@ -31,6 +31,12 @@ layouts = {
         "eeg_start": 1,
         "eeg_end": 5
     },
+    BoardIds.NEUROPAWN_KNIGHT_BOARD.value: {
+        "channels": ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz", "A1", "A2"],
+        "header": ["Sample", "CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz", "A1", "A2", "Time", "Trigger"],
+        "eeg_start": 1,
+        "eeg_end": 9
+    },
     BoardIds.MUSE_2016_BOARD.value: {
         "channels": ["TP9", "AF7", "AF8", "TP10"],
         "header": ["Sample", "TP9", "AF7", "AF8", "TP10", "Time", "Trigger"],

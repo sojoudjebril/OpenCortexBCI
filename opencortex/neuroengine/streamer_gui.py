@@ -97,7 +97,15 @@ class StreamerGUI:
         self.board = board
         self.board_id = self.board.get_board_id()
         self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
-        logging.info(f"EEG channels: {BoardShim.get_eeg_names(self.board_id)}")
+        try:
+            self.eeg_names = BoardShim.get_eeg_names(self.board_id)
+        except Exception as e:
+            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
+            self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
+
+        logging.info(f"EEG channels: {self.eeg_channels}")
+        logging.info(f"EEG names: {self.eeg_names}")
+
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.chunk_counter = 0
         self.num_points = self.window_size * self.sampling_rate
@@ -131,7 +139,7 @@ class StreamerGUI:
         logging.debug(f"Prediction interval in datapoints: {self.prediction_datapoints}")
 
         self.pipeline = Parallel(
-            band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_channels, average=True),
+            band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names, average=True),
             quality=QualityEstimator(quality_thresholds=self.quality_thresholds)
         )
 
@@ -192,15 +200,15 @@ class StreamerGUI:
         self.plot_timer.start(self.update_plot_speed_ms)
 
         # Initialize LSL streams
-        self.eeg_outlet = start_lsl_eeg_stream(channels=BoardShim.get_eeg_names(self.board_id), fs=self.sampling_rate,
+        self.eeg_outlet = start_lsl_eeg_stream(channels=self.eeg_names, fs=self.sampling_rate,
                                                source_id=self.board.get_device_name(self.board_id))
         self.inference_outlet = start_lsl_inference_stream(channels=1,
                                                            fs=self.sampling_rate,
                                                            source_id=self.board.get_device_name(self.board_id))
-        self.band_powers_outlet = start_lsl_power_bands_stream(channels=BoardShim.get_eeg_names(self.board_id),
+        self.band_powers_outlet = start_lsl_power_bands_stream(channels=self.eeg_names,
                                                                fs=self.sampling_rate,
                                                                source_id=self.board.get_device_name(self.board_id))
-        self.quality_outlet = start_lsl_quality_stream(channels=BoardShim.get_eeg_names(self.board_id),
+        self.quality_outlet = start_lsl_quality_stream(channels=self.eeg_names,
                                                        fs=self.sampling_rate,
                                                        source_id=self.board.get_device_name(self.board_id))
 
@@ -1077,7 +1085,7 @@ class StreamerGUI:
                 color: #999;
             }
         """)
-        self.confusion_button.clicked.connect(lambda: self.classifier.plot_confusion_matrix())
+        self.confusion_button.clicked.connect(lambda: self.plot_cm())
         classifier_buttons_layout.addWidget(self.confusion_button)
 
         classifier_layout.addLayout(classifier_buttons_layout)
@@ -1339,7 +1347,7 @@ class StreamerGUI:
             self.quality_indicators.append(scatter)
 
             # Add labels for each channel
-            text_item = pg.TextItem(text=BoardShim.get_eeg_names(self.board_id)[i], anchor=(1, 0.5))
+            text_item = pg.TextItem(text=str(self.eeg_names[i]), anchor=(1, 0.5))
             text_item.setPos(-10, i * self.offset_amplitude)  # Position label next to the corresponding channel
             self.eeg_plot.addItem(text_item)
 
@@ -1427,7 +1435,7 @@ class StreamerGUI:
 
     def init_classifier(self):
         """ Initialize the classifier """
-        self.classifier = Classifier(model=self.model, board_id=self.board_id, chs=self.eeg_channels)
+        self.classifier = Classifier(model=self.model, board_id=self.board_id, ch_names=self.eeg_channels)
 
     def set_train_start(self):
         """" Set the start of the training"""
@@ -1436,6 +1444,10 @@ class StreamerGUI:
     def train_classifier(self):
         """ Train the classifier"""
         self.gui_adapter.train_classifier()
+
+    def plot_cm(self):
+        """ Plot the confusion matrix"""
+        self.gui_adapter.plot_cm()
 
     def start_prediction_timer(self):
         """Start the prediction timer."""

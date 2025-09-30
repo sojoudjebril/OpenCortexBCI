@@ -53,7 +53,7 @@ class Classifier:
     Classifier class to train and evaluate custom models on EEG data
     """
 
-    def __init__(self, model, board_id, chs=None):
+e    def __init__(self, model, board_id, ch_names=None):
         if model is None:
             raise ValueError("Model cannot be None")
         self.model = models[model]
@@ -61,10 +61,10 @@ class Classifier:
         self.sequence = []
         self.board_id = board_id
         self.fs = BoardShim.get_sampling_rate(self.board_id)
-        self.chs = chs
+        self.ch_names = ch_names
         self.epoch_start = -0.1
         self.epoch_end = 0.7
-        self.cv_splits = 10
+        self.cv_splits = 2
         self.training_class = 1
         self.baseline = (self.epoch_start, 0)
         self.scaler = None
@@ -143,7 +143,7 @@ class Classifier:
         end_eeg = layouts[self.board_id]["eeg_end"]
         eeg = data[start_eeg:end_eeg]
         trigger = data[-1]
-        raw = convert_to_mne(eeg=eeg, trigger=trigger, rescale=1e6, fs=self.fs, chs=self.chs, recompute=False,
+        raw = convert_to_mne(eeg=eeg, trigger=trigger, rescale=1e6, fs=self.fs, chs=self.ch_names, recompute=False,
                              transpose=False)
         if BoardIds.ENOPHONE_BOARD == self.board_id:
             raw = raw.copy().set_eeg_reference(ref_channels=['C3', 'C4'])

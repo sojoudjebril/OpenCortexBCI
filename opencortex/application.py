@@ -16,9 +16,9 @@ logging_levels = {0: logging.NOTSET, 1: logging.DEBUG, 2: logging.INFO, 3: loggi
 base_dir = os.path.dirname(os.path.abspath(__file__))
 config_path = os.path.join(base_dir, "config", "Default.yaml")
 
-open_bci_ids = [BoardIds.CYTON_BOARD, BoardIds.CYTON_DAISY_BOARD, BoardIds.CYTON_DAISY_WIFI_BOARD,
-                BoardIds.CYTON_WIFI_BOARD, BoardIds.GANGLION_BOARD, BoardIds.GANGLION_WIFI_BOARD,
-                BoardIds.GANGLION_NATIVE_BOARD]
+serial_devices = [BoardIds.CYTON_BOARD, BoardIds.CYTON_DAISY_BOARD, BoardIds.CYTON_DAISY_WIFI_BOARD,
+                  BoardIds.CYTON_WIFI_BOARD, BoardIds.GANGLION_BOARD, BoardIds.GANGLION_WIFI_BOARD,
+                  BoardIds.GANGLION_NATIVE_BOARD, BoardIds.NEUROPAWN_KNIGHT_BOARD]
 
 
 def get_com_ports():
@@ -209,7 +209,7 @@ def run_gui():
 
     try:
         # Connect to board (existing logic)
-        if args.board_id in open_bci_ids:
+        if args.board_id in serial_devices:
             for com_port in com_ports:
                 try:
                     params.serial_port = com_port

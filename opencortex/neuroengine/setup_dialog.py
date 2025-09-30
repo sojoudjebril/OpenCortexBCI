@@ -30,7 +30,8 @@ def retrieve_eeg_devices():
                         ('GANGLION', 'Ganglion', '0000'),
                         ('GANGLION_NATIVE', 'Ganglion Native', '0000'),
                         ('GANGLION_WIFI', 'Ganglion Wifi', '0000'),]
-    all_devices = synthetic_devices + unicorn_devices + enophone_devices + ant_neuro_devices + open_bci_devices
+    neuropawn_devices = [('NEUROPAWN_KNIGHT_BOARD', 'Neuropawn Knight Board', '0000')]
+    all_devices = synthetic_devices + unicorn_devices + enophone_devices + ant_neuro_devices + open_bci_devices + neuropawn_devices
     return all_devices
 
 
@@ -43,20 +44,22 @@ def retrieve_board_id(device_name):
         return BoardIds.ANT_NEURO_EE_225_BOARD
     elif re.search(r'(?i)ANT.NEURO.411', device_name):
         return BoardIds.ANT_NEURO_EE_411_BOARD
-    elif re.search(r'(?i)CYTON', device_name):
+    elif re.search(r'(?i)Cyton', device_name):
         return BoardIds.CYTON_BOARD
-    elif re.search(r'(?i)CYTON_WIFI', device_name):
+    elif re.search(r'(?i)Cyton.Wifi', device_name):
         return BoardIds.CYTON_WIFI_BOARD
-    elif re.search(r'(?i)CYTON_DAISY', device_name):
+    elif re.search(r'(?i)Cyton.Daisy', device_name):
         return BoardIds.CYTON_DAISY_BOARD
-    elif re.search(r'(?i)CYTON_DAISY_WIFI', device_name):
+    elif re.search(r'(?i)Cyton.Daisy.Wifi', device_name):
         return BoardIds.CYTON_DAISY_WIFI_BOARD
-    elif re.search(r'(?i)GANGLION', device_name):
+    elif re.search(r'(?i)Ganglion', device_name):
         return BoardIds.GANGLION_BOARD
-    elif re.search(r'(?i)GANGLION_NATIVE', device_name):
+    elif re.search(r'(?i)Ganglion.Native', device_name):
         return BoardIds.GANGLION_NATIVE_BOARD
-    elif re.search(r'(?i)GANGLION_WIFI', device_name):
+    elif re.search(r'(?i)Ganglion.Wifi', device_name):
         return BoardIds.GANGLION_WIFI_BOARD
+    elif re.search(r'(?i)Neuropawn.Knight.Board', device_name):
+        return BoardIds.NEUROPAWN_KNIGHT_BOARD
     else:
         return BoardIds.SYNTHETIC_BOARD
 
