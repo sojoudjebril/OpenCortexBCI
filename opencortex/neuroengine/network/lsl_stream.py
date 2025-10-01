@@ -272,17 +272,6 @@
 #         logging.error(f"Error pushing quality to LSL: {e}")
 
 
-"""
-This class handles the LSL stream thread to read from an LSL stream and emit new sample data.
-The LSL stream is used to send the EEG data, the power bands, the prediction, and the quality indicators.
-
-Author: Michele Romani
-Email: michele.romani.zaltieri@gmail.com
-Copyright 2024 Michele Romani
-
-Optimized version with improved time synchronization and performance
-"""
-
 import json
 import logging
 import time
@@ -297,18 +286,26 @@ from opencortex.utils.processing.proc_helper import freq_bands
 class LSLStreamThread(QThread):
     """Thread to read from an LSL stream and emit new sample data."""
 
-    new_sample = pyqtSignal(object, float)  # Signal to emit new sample data
+    new_sample = pyqtSignal(object, float)
     set_train_start = pyqtSignal(object, float)
     start_train = pyqtSignal(object, float)
     start_predicting = pyqtSignal(object, float)
     stop_predicting = pyqtSignal(object, float)
+    
+    # Marker configuration mapping
+    MARKER_CONFIG = {
+        '98': ('set_train_start', 'Start of training'),
+        '99': ('start_train', 'End of training'),
+        '100': ('start_predicting', 'Start inference'),
+        '101': ('stop_predicting', 'Stop inference')
+    }
     
     def __init__(self):
         super().__init__()
         self.previous_ts = 0
         self.inlet = None
         self.running = True
-        self._lock = None  # Thread lock for LSL calls (Linux compatibility)
+        self._lock = None
 
     def run(self):
         """Run the LSL stream thread."""
@@ -317,57 +314,33 @@ class LSLStreamThread(QThread):
 
         while self.running:
             try:
-                # Pull a new sample from the inlet
-                # The timestamp returned is already synchronized across the network via LSL
                 marker, timestamp = self.inlet.pull_sample(timeout=1.0)
                 
                 if marker is None:
                     continue
                 
-                # Calculate delta using LSL synchronized timestamps
                 delta_ts = np.round(timestamp - self.previous_ts, 2) if self.previous_ts != 0 else 0
                 self.previous_ts = timestamp
-
                 marker_value = marker[0]
                 
-                # Handle training start trigger
-                if marker_value == '98':
-                    self.new_sample.emit(marker_value, timestamp)
-                    self.set_train_start.emit(marker_value, timestamp)
-                    date_time = datetime.fromtimestamp(timestamp)
-                    logging.info(f"Start of training trigger {marker_value} at {date_time}")
+                # Emit new sample for all markers
+                self.new_sample.emit(marker_value, timestamp)
                 
-                # Handle training end trigger
-                elif marker_value == '99':
-                    self.new_sample.emit(marker_value, timestamp)
-                    self.start_train.emit(marker_value, timestamp)
+                # Handle special markers
+                if marker_value in self.MARKER_CONFIG:
+                    signal_name, log_msg = self.MARKER_CONFIG[marker_value]
+                    getattr(self, signal_name).emit(marker_value, timestamp)
                     date_time = datetime.fromtimestamp(timestamp)
-                    logging.info(f"End of training trigger {marker_value} at {date_time}")
-                
-                # Handle inference start trigger
-                elif marker_value == '100':
-                    self.new_sample.emit(marker_value, timestamp)
-                    self.start_predicting.emit(marker_value, timestamp)
-                    date_time = datetime.fromtimestamp(timestamp)
-                    logging.info(f"Start inference trigger {marker_value} at {date_time}")
-                
-                # Handle inference stop trigger
-                elif marker_value == '101':
-                    self.new_sample.emit(marker_value, timestamp)
-                    self.stop_predicting.emit(marker_value, timestamp)
-                    date_time = datetime.fromtimestamp(timestamp)
-                    logging.info(f"Stop inference trigger {marker_value} at {date_time}")
-                
-                # Handle regular markers
+                    logging.info(f"{log_msg} trigger {marker_value} at {date_time}")
                 else:
+                    # Regular markers
                     delta_ts_ms = delta_ts * 1000
                     logging.debug(f"New sample: {marker_value} after {delta_ts_ms:.2f} ms")
-                    self.new_sample.emit(marker_value, timestamp)
                     
             except Exception as e:
                 logging.error(f"Error while reading LSL stream: {e}")
                 logging.info("Attempting to reconnect to LSL stream...")
-                time.sleep(1)  # Wait before reconnecting
+                time.sleep(1)
                 try:
                     self.inlet = connect_lsl_marker_stream('CortexMarkers')
                 except Exception as reconnect_error:
@@ -396,13 +369,11 @@ def connect_lsl_marker_stream(stream_name='CortexMarkers', stream_type='Markers'
         
         inlet = StreamInlet(
             streams[0],
-            max_buflen=360,  # Buffer up to 360 seconds
+            max_buflen=360,
             processing_flags=pylsl.proc_clocksync | pylsl.proc_dejitter | pylsl.proc_threadsafe
         )
         
-        # Open the stream and wait for first sample to ensure connection
         inlet.open_stream(timeout=timeout)
-        
         logging.info(f"LSL stream connected: {streams[0].name()}")
         return inlet
         
@@ -411,147 +382,106 @@ def connect_lsl_marker_stream(stream_name='CortexMarkers', stream_type='Markers'
         raise
 
 
-def start_lsl_eeg_stream(channels, fs, source_id, stream_name='CortexEEG', type='EEG'):
+def start_lsl_stream(channels, fs, source_id, stream_name, stream_type, 
+                     channel_type=None, channel_unit=None, add_trigger=False):
     """
-    Start an LSL stream for the EEG data
-
-    :param channels: list of str, channel names
+    Generic function to start any LSL stream
+    
+    :param channels: list of str or int, channel names or count
     :param fs: int, sampling rate
     :param source_id: str, source id
     :param stream_name: str, name of the LSL stream
-    :param type: str, type of the LSL stream
+    :param stream_type: str, type of the LSL stream
+    :param channel_type: str, type for channel metadata (e.g., 'EEG', 'PSD')
+    :param channel_unit: str, unit for channel metadata (e.g., 'microvolts')
+    :param add_trigger: bool, whether to add a trigger channel
     :return: StreamOutlet object
     """
     try:
-        ch_count = len(channels) + 1  # +1 for trigger channel
+        # Handle channels as list of names or as count
+        if isinstance(channels, int):
+            ch_count = channels
+            ch_names = [f"Ch{i+1}" for i in range(channels)]
+        else:
+            ch_count = len(channels) + (1 if add_trigger else 0)
+            ch_names = channels
+        
         info = pylsl.StreamInfo(
             name=stream_name,
-            type=type,
+            type=stream_type,
             channel_count=ch_count,
             nominal_srate=fs,
             channel_format='float32',
             source_id=source_id
         )
         
-        # Add channel metadata
-        chs = info.desc().append_child("channels")
-        for ch in channels:
-            channel = chs.append_child("channel")
-            channel.append_child_value("name", ch)
-            channel.append_child_value("type", "EEG")
-            channel.append_child_value("unit", "microvolts")
+        # Add channel metadata if provided
+        if channel_type:
+            chs = info.desc().append_child("channels")
+            for ch in ch_names:
+                channel = chs.append_child("channel")
+                channel.append_child_value("name", ch)
+                channel.append_child_value("type", channel_type)
+                if channel_unit:
+                    channel.append_child_value("unit", channel_unit)
+            
+            # Add trigger channel if requested
+            if add_trigger:
+                trigger_ch = chs.append_child("channel")
+                trigger_ch.append_child_value("name", "Trigger")
+                trigger_ch.append_child_value("type", "Trigger")
         
-        # Add trigger channel
-        trigger_ch = chs.append_child("channel")
-        trigger_ch.append_child_value("name", "Trigger")
-        trigger_ch.append_child_value("type", "Trigger")
-
-        eeg_outlet = StreamOutlet(info, chunk_size=32, max_buffered=360)
-        logging.info(f"LSL EEG stream started: {info.name()}")
-        return eeg_outlet
+        outlet = StreamOutlet(info, chunk_size=32, max_buffered=360)
+        logging.info(f"LSL {stream_type} stream started: {info.name()}")
+        return outlet
         
     except Exception as e:
-        logging.error(f"Error starting LSL EEG stream: {e}")
+        logging.error(f"Error starting LSL {stream_type} stream: {e}")
         raise
+
+
+def start_lsl_eeg_stream(channels, fs, source_id, stream_name='CortexEEG', type='EEG'):
+    """Start an LSL stream for EEG data"""
+    return start_lsl_stream(channels, fs, source_id, stream_name, type, 
+                           channel_type='EEG', channel_unit='microvolts', add_trigger=True)
 
 
 def start_lsl_power_bands_stream(channels, fs, source_id, stream_name='CortexPSD', type='PSD'):
-    """
-    Start an LSL stream for the power bands data
-    
-    :param channels: list of str, channel names (e.g., ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'])
-    :param fs: int, sampling rate
-    :param source_id: str, source id
-    :param stream_name: str, name of the LSL stream
-    :param type: str, type of the LSL stream
-    :return: StreamOutlet object
-    """
-    try:
-        ch_count = len(channels)
-        info = pylsl.StreamInfo(
-            name=stream_name,
-            type=type,
-            channel_count=ch_count,
-            nominal_srate=fs,
-            channel_format='float32',
-            source_id=source_id
-        )
-        
-        # Add channel names
-        chs = info.desc().append_child("channels")
-        for ch in channels:
-            channel = chs.append_child("channel")
-            channel.append_child_value("name", ch)
-            channel.append_child_value("type", "PSD")
-        
-        band_powers_outlet = StreamOutlet(info, chunk_size=32, max_buffered=360)
-        logging.info(f"LSL power bands stream started: {info.name()}")
-        return band_powers_outlet
-        
-    except Exception as e:
-        logging.error(f"Error starting LSL power bands stream: {e}")
-        raise
+    """Start an LSL stream for power bands data"""
+    return start_lsl_stream(channels, fs, source_id, stream_name, type, channel_type='PSD')
 
 
 def start_lsl_inference_stream(channels, fs, source_id, stream_name='CortexInference', type='Inference'):
-    """
-    Start an LSL stream for the prediction data
-    
-    :param channels: int, number of channels (e.g., 1 for single class prediction)
-    :param fs: int, sampling rate
-    :param source_id: str, source id
-    :param stream_name: str, name of the LSL stream
-    :param type: str, type of the LSL stream
-    :return: StreamOutlet object
-    """
-    try:
-        info = pylsl.StreamInfo(
-            name=stream_name,
-            type=type,
-            channel_count=channels,
-            nominal_srate=fs,
-            channel_format='float32',
-            source_id=source_id
-        )
-        
-        prediction_outlet = StreamOutlet(info, chunk_size=32, max_buffered=360)
-        logging.info(f"LSL inference stream started: {info.name()}")
-        return prediction_outlet
-        
-    except Exception as e:
-        logging.error(f"Error starting LSL inference stream: {e}")
-        raise
+    """Start an LSL stream for prediction data"""
+    return start_lsl_stream(channels, fs, source_id, stream_name, type)
 
 
 def start_lsl_quality_stream(channels, fs, source_id, stream_name='CortexQuality', type='Qualities'):
+    """Start an LSL stream for quality data"""
+    return start_lsl_stream(channels, fs, source_id, stream_name, type)
+
+
+def _prepare_data_for_push(data, timestamps):
     """
-    Start an LSL stream for the quality data
+    Helper to prepare data and timestamps for LSL push
     
-    :param channels: list of str, channel names
-    :param fs: int, sampling rate
-    :param source_id: str, source id
-    :param stream_name: str, name of the LSL stream
-    :param type: str, type of the LSL stream
-    :return: StreamOutlet object
+    :param data: numpy array or list
+    :param timestamps: timestamps array/list or None
+    :return: tuple (data_list, timestamps_list or None)
     """
-    try:
-        ch_count = len(channels)
-        info = pylsl.StreamInfo(
-            name=stream_name,
-            type=type,
-            channel_count=ch_count,
-            nominal_srate=fs,
-            channel_format='float32',
-            source_id=source_id
-        )
-        
-        quality_outlet = StreamOutlet(info, chunk_size=32, max_buffered=360)
-        logging.info(f"LSL quality stream started: {info.name()}")
-        return quality_outlet
-        
-    except Exception as e:
-        logging.error(f"Error starting LSL quality stream: {e}")
-        raise
+    # Convert data to numpy if needed
+    if not isinstance(data, np.ndarray):
+        data = np.array(data)
+    
+    # Convert data to list
+    data_list = data.tolist() if hasattr(data, 'tolist') else data
+    
+    # Convert timestamps if provided
+    timestamps_list = None
+    if timestamps is not None:
+        timestamps_list = timestamps.tolist() if isinstance(timestamps, np.ndarray) else timestamps
+    
+    return data_list, timestamps_list
 
 
 def push_lsl_raw_eeg(outlet: StreamOutlet, data, start_eeg, end_eeg, counter, timestamps=None):
@@ -563,30 +493,25 @@ def push_lsl_raw_eeg(outlet: StreamOutlet, data, start_eeg, end_eeg, counter, ti
     :param start_eeg: int, start index of the EEG channels
     :param end_eeg: int, end index of the EEG channels
     :param counter: int, chunk counter
-    :param timestamps: numpy array of timestamps for each sample, or None to use current time
+    :param timestamps: numpy array of timestamps for each sample, or None
     """
     try:
-        # Extract EEG and Trigger channels
+        # Extract and combine EEG and Trigger channels
         eeg = data[start_eeg:end_eeg]
-        trigger = data[-1:, :]  # Keep as 2D array
-        
-        # Vertically stack EEG and Trigger (both are 2D)
+        trigger = data[-1:, :]
         combined_data = np.vstack((eeg, trigger))
         
-        # Transpose to get (n_samples, n_channels) for LSL
+        # Transpose to (n_samples, n_channels) for LSL
         samples = combined_data.T
+        data_list, timestamps_list = _prepare_data_for_push(samples, timestamps)
         
-        # Use provided timestamps or generate them
-        if timestamps is None:
-            # Push with automatic timestamping
-            outlet.push_chunk(samples.tolist())
+        # Push with or without timestamps
+        if timestamps_list is None:
+            outlet.push_chunk(data_list)
         else:
-            # Ensure timestamps is a list
-            if isinstance(timestamps, np.ndarray):
-                timestamps = timestamps.tolist()
-            outlet.push_chunk(samples.tolist(), timestamps)
+            outlet.push_chunk(data_list, timestamps_list)
         
-        logging.debug(f"Pushed chunk {counter} ({samples.shape[0]} samples) to LSL stream {outlet.get_info().name()}")
+        logging.debug(f"Pushed chunk {counter} ({len(data_list)} samples) to LSL stream {outlet.get_info().name()}")
         
     except Exception as e:
         logging.error(f"Error pushing EEG chunk to LSL: {e}")
@@ -601,79 +526,69 @@ def push_lsl_band_powers(outlet: StreamOutlet, band_powers, timestamps=None):
     :param timestamps: list or array of timestamps for each sample, or None
     """
     try:
-        # Convert to numpy array if needed
+        # Convert and reshape data
         if not isinstance(band_powers, np.ndarray):
-            band_powers = np.array(band_powers)
+            # Convert from dict to array if needed
+            if isinstance(band_powers, dict):
+                band_powers = np.array([band_powers[band] for band in freq_bands.keys()])
+            else:
+                band_powers = np.array(band_powers)
         
         # Ensure correct shape (n_samples, n_bands)
         if band_powers.ndim == 1:
             band_powers = band_powers.reshape(1, -1)
         elif band_powers.shape[0] > band_powers.shape[1]:
-            # Likely in (n_bands, n_samples) format, transpose
             band_powers = band_powers.T
         
-        # Convert to list for LSL
-        samples = band_powers.tolist()
+        data_list, timestamps_list = _prepare_data_for_push(band_powers, timestamps)
         
-        if timestamps is None:
-            outlet.push_chunk(samples)
+        if timestamps_list is None:
+            outlet.push_chunk(data_list)
         else:
-            if isinstance(timestamps, np.ndarray):
-                timestamps = timestamps.tolist()
-            outlet.push_chunk(samples, timestamps)
+            outlet.push_chunk(data_list, timestamps_list)
         
-        logging.debug(f"Pushed {len(samples)} band power samples to LSL stream {outlet.get_info().name()}")
+        logging.debug(f"Pushed {len(data_list)} band power samples to LSL stream {outlet.get_info().name()}")
         
     except Exception as e:
         logging.error(f"Error pushing band powers to LSL: {e}")
 
 
-def push_lsl_inference(outlet: StreamOutlet, prediction, timestamp=None):
+def push_lsl_sample(outlet: StreamOutlet, sample_data, timestamp=None):
     """
-    Push a prediction to the LSL stream
+    Generic function to push a single sample to LSL stream
     
     :param outlet: StreamOutlet object
-    :param prediction: dict with 'class' key, or numeric value
+    :param sample_data: numeric value, dict with 'class' key, or list/array
     :param timestamp: float, timestamp value (None for automatic)
     """
     try:
-        # Extract predicted class
-        if isinstance(prediction, dict):
-            predicted_class = prediction.get('class', 0)
+        # Handle different input types
+        if isinstance(sample_data, dict):
+            sample = [float(sample_data.get('class', 0))]
+        elif isinstance(sample_data, (list, tuple)):
+            sample = [float(x) for x in sample_data]
+        elif isinstance(sample_data, np.ndarray):
+            sample = sample_data.tolist()
         else:
-            predicted_class = prediction
+            sample = [float(sample_data)]
         
-        # Push sample
+        # Push with or without timestamp
         if timestamp is None:
-            outlet.push_sample([float(predicted_class)])
+            outlet.push_sample(sample)
         else:
-            outlet.push_sample([float(predicted_class)], timestamp)
+            outlet.push_sample(sample, timestamp)
         
-        logging.debug(f"Pushed prediction {predicted_class} to LSL stream {outlet.get_info().name()}")
+        logging.debug(f"Pushed sample {sample} to LSL stream {outlet.get_info().name()}")
         
     except Exception as e:
-        logging.error(f"Error pushing prediction to LSL: {e}")
+        logging.error(f"Error pushing sample to LSL: {e}")
+
+
+def push_lsl_inference(outlet: StreamOutlet, prediction, timestamp=None):
+    """Push a prediction to the LSL stream"""
+    push_lsl_sample(outlet, prediction, timestamp)
 
 
 def push_lsl_quality(outlet: StreamOutlet, quality, timestamp=None):
-    """
-    Push quality indicators to the LSL stream
-    
-    :param outlet: StreamOutlet object
-    :param quality: list or array of quality indicators
-    :param timestamp: float, timestamp value (None for automatic)
-    """
-    try:
-        # Ensure quality is a list
-        if isinstance(quality, np.ndarray):
-            quality = quality.tolist()
-        
-        if timestamp is None:
-            outlet.push_sample(quality)
-        else:
-            outlet.push_sample(quality, timestamp)
-        
-        logging.debug(f"Pushed quality indicators to LSL stream {outlet.get_info().name()}")
-        
-    except Exception as e:
-        logging.error(f"Error pushing quality to LSL: {e}")
+    """Push quality indicators to the LSL stream"""
+    push_lsl_sample(outlet, quality, timestamp)
