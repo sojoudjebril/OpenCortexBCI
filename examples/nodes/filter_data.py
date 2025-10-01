@@ -8,7 +8,7 @@ fs = 250
 chs = ["Fz", "C3", "Cz", "C4", "Pz", "PO7", "Oz", "PO8"]
 
 
-eeg, trigger, dataframe = load_data("../../../data/aep/auditory_erp_eyes_open_S1.csv", fs=fs, skiprows=5, delimiter=',')
+eeg, trigger, dataframe = load_data("../../data/aep/auditory_erp_eyes_open_S1.csv", fs=fs, skiprows=5, delimiter=',')
 print("Loaded data with shape:" + str(eeg.shape) + " and trigger shape: " + str(trigger.shape))
 print("That means we have " + str(eeg.shape[0]) + " samples and " + str(eeg.shape[1]) + " channels.")
 
