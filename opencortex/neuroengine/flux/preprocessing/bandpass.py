@@ -4,7 +4,7 @@ BandPass Filter signal processing
 from typing import Union, List, Tuple
 from mne.io import RawArray
 from opencortex.neuroengine.flux.base.node import Node
-
+import logging
 
 class BandPassFilterNode(Node):
     """
@@ -38,6 +38,14 @@ class BandPassFilterNode(Node):
         self.filter_length = filter_length
         self.l_trans_bandwidth = l_trans_bandwidth
         self.h_trans_bandwidth = h_trans_bandwidth
+
+        if self.l_freq >= self.h_freq:
+            raise ValueError("l_freq must be less than h_freq")
+        if self.l_freq < 0 or self.h_freq < 0:
+            raise ValueError("Cutoff frequencies must be non-negative")
+        if l_freq - l_trans_bandwidth < 0:
+            logging.warning(f"l_trans_bandwidth must be less than h_freq, setting it to l_freq:{self.l_freq}Hz")
+            self.l_trans_bandwidth = l_freq
 
     def __call__(self, data: RawArray) -> RawArray:
         """

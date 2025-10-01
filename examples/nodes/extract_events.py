@@ -61,11 +61,9 @@ if __name__ == "__main__":
 
     # Apply preprocessing
     print("Applying preprocessing pipeline...")
-    filtered_data = preprocessing(raw_data)
-
     # Get the event extraction node (last in pipeline)
     event_extractor = preprocessing.steps[-1]
-    events, event_ids, event_colors = event_extractor.get_events()
+    filtered_data, events, event_ids, event_colors = preprocessing(raw_data)
 
     print(f"\n{event_extractor}")
     print(f"Event IDs: {event_ids}")

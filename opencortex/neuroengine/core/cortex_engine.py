@@ -18,12 +18,12 @@ from brainflow.board_shim import BoardShim, BoardIds
 
 from opencortex.neuroengine.models.classifier import Classifier
 from opencortex.neuroengine.flux.base.parallel import Parallel
-from opencortex.neuroengine.flux.band_power import BandPowerExtractor
-from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
+from opencortex.neuroengine.flux.features.band_power import BandPowerExtractor
+from opencortex.neuroengine.flux.features.quality_estimator import QualityEstimator
 from opencortex.neuroengine.network.lsl_stream import (
     start_lsl_eeg_stream, start_lsl_power_bands_stream,
     start_lsl_inference_stream, start_lsl_quality_stream,
-    push_lsl_raw_eeg, push_lsl_band_powers, push_lsl_inference, push_lsl_quality
+    push_lsl_raw_eeg, push_lsl_inference, push_lsl_quality
 )
 from opencortex.utils.layouts import layouts
 
