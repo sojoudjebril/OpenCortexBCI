@@ -23,5 +23,5 @@ classifiers = [
 dependencies = {file = ["requirements.txt"]}
 
 [project.urls]
-Homepage = "https://github.com/BRomans/OpenCortex"
-Issues = "https://github.com/BRomans/OpenCortex/issues"
+Homepage = "https://github.com/BRomans/OpenCortexBCI"
+Issues = "https://github.com/BRomans/OpenCortexBCI/issues"

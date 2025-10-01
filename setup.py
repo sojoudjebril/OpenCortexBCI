@@ -11,11 +11,11 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
-    url="https://github.com/BRomans/OpenCortex",
+    url="https://github.com/BRomans/OpenCortexBCI",
     include_package_data=True,
-    packages=find_packages(exclude=["data", "images", "notebooks", "test", "tools", "export", "examples"]),
+    packages=find_packages(exclude=["data", "images", "notebooks", "tests", "tools", "export", "examples", "scripts"]),
     package_data={
-            "opencortex.config": ["*.yaml"],
+            "opencortex": ["configs/*.yaml"],
     },
     entry_points={
         "console_scripts": [

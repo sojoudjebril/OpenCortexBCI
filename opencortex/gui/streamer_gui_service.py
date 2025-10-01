@@ -3,7 +3,7 @@ import logging
 from PyQt5 import QtWidgets
 
 from opencortex.neuroengine.core.cortex_engine import CortexEngine
-from opencortex.neuroengine.gui.gui_adapter import GUIAdapter
+from opencortex.gui.gui_adapter import GUIAdapter
 
 
 class StreamerGUIService:

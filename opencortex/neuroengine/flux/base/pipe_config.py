@@ -24,3 +24,6 @@ class PipelineConfig:
         self.config = config or {}
         self.callback = callback
         self.name = name or f"pipeline_{id(pipeline)}"
+        
+    def __repr__(self):
+        return f"PipelineConfig(name={self.name}, pipeline={self.pipeline}, config={self.config})"

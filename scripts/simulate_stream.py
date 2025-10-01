@@ -1,10 +1,11 @@
+import pylsl
 import logging
 import time
 import pylsl
 
-"""
-This script is used to simulate an LSL stream that sends markers every 250 ms.
-"""
+
+logging.basicConfig(level=logging.INFO)
+outlet = pylsl.StreamOutlet(pylsl.StreamInfo('Cortex Markers', 'Markers', 1, 0, 'string', 'marker'))
 
 
 def send_test_marker(marker, interval=250):
@@ -22,15 +23,12 @@ def simulate_lsl_client(start_cmd, end_cmd, nclasses=4, duration_s=30, interval_
     time.sleep(1)
     send_test_marker(end_cmd)
 
-
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     outlet = pylsl.StreamOutlet(pylsl.StreamInfo('Cortex Markers', 'Markers', 1, 0, 'string', 'marker'))
 
     cmd = ""
-    while cmd.lower() is not "q":
+    while cmd.lower() != "q":
         cmd = input("Enter T to simulate training, A to simulate neuroengine, Q to quit: ")
         if cmd.lower() == "t":
             simulate_lsl_client(start_cmd="98", end_cmd="99", nclasses=4, duration_s=5, interval_ms=250)

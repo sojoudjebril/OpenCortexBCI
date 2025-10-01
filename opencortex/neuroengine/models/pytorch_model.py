@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from opencortex.neuroengine.base_model import BaseModelInterface
+from opencortex.neuroengine.models.base_model import BaseModelInterface
 
 
 class PyTorchModelInterface(BaseModelInterface):

@@ -1,8 +1,8 @@
 import numpy as np
 
 from opencortex.neuroengine.flux.base.node import Node
-from opencortex.processing.preprocessing import extract_band_powers_fast as extract_band_powers
-from opencortex.processing.proc_helper import freq_bands
+from opencortex.utils.processing.preprocessing import extract_band_powers_fast as extract_band_powers
+from opencortex.utils.processing.proc_helper import freq_bands
 
 
 class BandPowerExtractor(Node):
