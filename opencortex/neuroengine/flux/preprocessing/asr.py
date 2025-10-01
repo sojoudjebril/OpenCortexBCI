@@ -104,14 +104,14 @@ class ASRNode(Node):
         if not self.calibrate and self.is_fitted:
             logging.info("ASR model already fitted; skipping calibration")
         else:
-            self.asr.fit(calib_data.T)
+            self.asr.fit(calib_data)
             self.is_fitted = True
 
         # Transform all data (transpose to samples x channels)
-        cleaned_data = self.asr.transform(eeg_data.T)
+        cleaned_data = self.asr.transform(eeg_data)
 
         # Transpose back to channels x samples
-        cleaned_data = cleaned_data.T
+        #cleaned_data = cleaned_data.T
 
         logging.info(f"ASR cleaning complete")
 
