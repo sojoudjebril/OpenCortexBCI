@@ -24,7 +24,7 @@ from matplotlib import pyplot as plt
 from opencortex.neuroengine.models.classification.majority_vote import MajorityVoteClassifier
 from opencortex.utils.layouts import layouts
 from opencortex.utils.loader import convert_to_mne
-from opencortex.validation.cross_val import plot_cross_validated_roc_curve, plot_cross_validated_confusion_matrix, normalize
+from opencortex.utils.validation.cross_val import plot_cross_validated_roc_curve, plot_cross_validated_confusion_matrix, normalize
 
 # turn off MNE logging
 mne.utils.set_log_level('ERROR')

@@ -32,6 +32,9 @@ class ProcessorGroup(Node):
         self.wait_for_all = wait_for_all
         self._results: Dict[str, Any] = {}
         self._lock = threading.Lock()
+        
+    def __iter__(self):
+        return iter(self.pipelines)
 
     def _execute_pipeline(
             self,

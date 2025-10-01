@@ -1,6 +1,6 @@
 import onnxruntime as ort
 
-from opencortex.neuroengine.base_model import BaseModelInterface
+from opencortex.neuroengine.models.base_model import BaseModelInterface
 
 
 class OnnxModelInterface(BaseModelInterface):

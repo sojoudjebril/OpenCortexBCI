@@ -1,6 +1,7 @@
 """
-StreamEngine - Main application controller and independent service
-Runs as the primary loop, with GUI as an optional interface.
+CortexEngine - Main application controller and independent service
+Runs as the primary loop, with optional GUI interface running on a separate thread.
+Can also run headless for server deployments.
 
 Author: Michele Romani
 """
@@ -15,7 +16,7 @@ from typing import Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor
 from brainflow.board_shim import BoardShim, BoardIds
 
-from opencortex.neuroengine.classifier import Classifier
+from opencortex.neuroengine.models.classifier import Classifier
 from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
@@ -167,6 +168,10 @@ class CortexEngine:
     def stop(self):
         """Stop the StreamEngine."""
         self.running = False
+        
+        # Remove all callbacks
+        self.data_callbacks.clear()
+        self.event_callbacks.clear()
 
         if self.main_thread:
             self.main_thread.join(timeout=5.0)
@@ -226,7 +231,7 @@ class CortexEngine:
             # Push to LSL streams
             #push_lsl_band_powers(self.band_powers_outlet, band_powers, ts)
             push_lsl_quality(self.quality_outlet, quality_scores)
-            push_lsl_raw_eeg(self.eeg_outlet, self.filtered_eeg, start_eeg, end_eeg, 0, ts, True)  # chunk_data=True
+            push_lsl_raw_eeg(self.eeg_outlet, self.filtered_eeg, start_eeg, end_eeg, 0, ts)  # chunk_data=True
 
             # Create data packet for interfaces
             stream_data = StreamData(raw_eeg=self.raw_data.copy(),

@@ -1,7 +1,7 @@
 import joblib
 import numpy as np
 
-from opencortex.neuroengine.base_model import BaseModelInterface
+from opencortex.neuroengine.models.base_model import BaseModelInterface
 
 
 class SklearnModel(BaseModelInterface):

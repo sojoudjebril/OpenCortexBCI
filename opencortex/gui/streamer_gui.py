@@ -14,13 +14,13 @@ import pyqtgraph as pg
 import os
 import yaml
 from PyQt5 import QtWidgets, QtCore
-from opencortex.neuroengine.classifier import Classifier
+from opencortex.neuroengine.models.classifier import Classifier
 from opencortex.neuroengine.core.cortex_engine import CortexEngine
 from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
-from opencortex.neuroengine.gui.frequency_band_widget import FrequencyBandPanel
-from opencortex.neuroengine.gui.gui_adapter import GUIAdapter
+from opencortex.gui.frequency_band_widget import FrequencyBandPanel
+from opencortex.gui.gui_adapter import GUIAdapter
 from opencortex.neuroengine.network.lsl_stream import LSLStreamThread, start_lsl_eeg_stream, start_lsl_power_bands_stream, \
     start_lsl_inference_stream, start_lsl_quality_stream, push_lsl_raw_eeg, push_lsl_band_powers, push_lsl_inference, \
     push_lsl_quality
@@ -1296,8 +1296,7 @@ class StreamerGUI:
             band_powers_array = [band_powers[band] for band in band_powers.keys()]
             #push_lsl_band_powers(self.band_powers_outlet, band_powers_array, ts, band_powers.keys())
             push_lsl_quality(self.quality_outlet, quality_scores)
-            push_lsl_raw_eeg(self.eeg_outlet, self.filtered_eeg, start_eeg, end_eeg, self.chunk_counter, ts,
-                             self.lsl_chunk_checkbox.isChecked())
+            push_lsl_raw_eeg(self.eeg_outlet, self.filtered_eeg, start_eeg, end_eeg, self.chunk_counter, ts)
 
             if self.osc_thread:
                 address = str(self.osc_address_input.text())
@@ -1419,6 +1418,8 @@ class StreamerGUI:
             with open(path, 'w') as self.file:
                 write_header(self.file, self.board_id)
                 data = self.board.get_board_data()
+                logging.info(f"Exporting data to {path}")
+                logging.info(f"Data shape: {data.shape}")
                 if format == 'csv':
                     DataFilter.write_file(data, path, 'a')
         except Exception as e:

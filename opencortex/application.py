@@ -4,32 +4,46 @@ import logging
 import yaml
 from sys import platform
 from PyQt5 import QtWidgets
+
+
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
-from opencortex.neuroengine.gui.gui_adapter import GUIAdapter
-from opencortex.neuroengine.setup_dialog import SetupDialog, retrieve_board_id, retrieve_eeg_devices
-from opencortex.neuroengine.streamer_gui import StreamerGUI
+import opencortex
+from opencortex.gui.gui_adapter import GUIAdapter
+from opencortex.gui.setup_dialog import SetupDialog, retrieve_board_id, retrieve_eeg_devices
+from opencortex.gui.streamer_gui import StreamerGUI
 from opencortex.neuroengine.core.cortex_engine import CortexEngine, HeadlessCortexEngine
+
+import importlib.resources as pkg_resources
+
 
 logging_levels = {0: logging.NOTSET, 1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR,
                   5: logging.CRITICAL}
 
+config_path = pkg_resources.files("opencortex.configs").joinpath("Default.yaml")
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(base_dir, "config", "Default.yaml")
+# config_path = os.path.join(base_dir, "configs", "Default.yaml")
 
 serial_devices = [BoardIds.CYTON_BOARD, BoardIds.CYTON_DAISY_BOARD, BoardIds.CYTON_DAISY_WIFI_BOARD,
                   BoardIds.CYTON_WIFI_BOARD, BoardIds.GANGLION_BOARD, BoardIds.GANGLION_WIFI_BOARD,
                   BoardIds.GANGLION_NATIVE_BOARD, BoardIds.NEUROPAWN_KNIGHT_BOARD]
 
 
+# def get_com_ports():
+#     com_ports = []
+#     if platform == 'win32':
+#         com_ports = ['COM' + str(i) for i in range(6)]
+#     elif platform == 'linux':
+#         com_ports = ['/dev/ttyUSB' + str(i) for i in range(6)]
+#     elif platform == 'darwin':
+#         com_ports = ['/dev/tty.usbserial-' + str(i) for i in range(6)]
+#     return com_ports
+
+import serial.tools.list_ports
+
 def get_com_ports():
-    com_ports = []
-    if platform == 'win32':
-        com_ports = ['COM' + str(i) for i in range(6)]
-    elif platform == 'linux':
-        com_ports = ['/dev/ttyUSB' + str(i) for i in range(6)]
-    elif platform == 'darwin':
-        com_ports = ['/dev/tty.usbserial-' + str(i) for i in range(6)]
-    return com_ports
+    ports = serial.tools.list_ports.comports()
+    return [port.device for port in ports]
 
 
 def run_headless():
@@ -60,7 +74,7 @@ def run_headless():
     # New headless-specific arguments
     parser.add_argument('--headless', action='store_true', help='run in headless mode (no GUI)')
     parser.add_argument('--config-file', type=str, help='config file path', required=False,
-                        default='config/Default.yaml')
+                        default=config_path)
     parser.add_argument('--window-size', type=int, help='window size in seconds', required=False, default=1)
     parser.add_argument('--log-file', type=str, help='log file for headless mode', required=False, default=None)
 
@@ -172,7 +186,7 @@ def run_gui():
     try:
         devices = retrieve_eeg_devices()
         win = QtWidgets.QApplication([])
-        config_files = os.listdir(os.path.join(base_dir, 'config'))
+        config_files = os.listdir(os.path.join(base_dir, 'configs'))
         config_files = [f for f in config_files if f.endswith('.yaml')]
         dialog = SetupDialog(devices, config_files=config_files)
         window_size = 0
@@ -250,8 +264,8 @@ def run_gui():
                     streamer.quit()
             except BaseException:
                 logging.warning('Streaming has already been stopped')
-            board_shim.stop_stream()
-            board_shim.release_session()
+            # board_shim.stop_stream()
+            # board_shim.release_session()
 
 
 def run():
