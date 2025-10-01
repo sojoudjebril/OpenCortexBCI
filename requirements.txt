@@ -4,7 +4,7 @@ numpy<2.0
 pyarrow
 #Network
 python-osc>=1.9.0
-pylsl>=1.16.2
+pylsl>=1.16.2     # equal to 1.16.2 because with 1.17.0 it gives ImportError: cannot import name 'resolve_stream' from 'pylsl'
 pybluez2
 pyserial>=3.5
 #Signal Processing
