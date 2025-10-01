@@ -1,0 +1,70 @@
+{
+    "Markers": [
+        {
+            "deleted": false,
+            "endDatetime": "2024-03-10T20:18:01.424793-04:00",
+            "extras": {
+            },
+            "index": 1,
+            "label": "Eyes Opened",
+            "originalEndDatetime": "2024-03-10T20:18:01.607848-04:00",
+            "originalStartDatetime": "2024-03-10T20:17:46.601064-04:00",
+            "port": "Baseline EmotivPRO",
+            "startDatetime": "2024-03-10T20:17:46.604821-04:00",
+            "type": "interval",
+            "uuid": "8e8d3bf6-284d-49fa-9e6d-887b9b3376f4",
+            "value": 1
+        },
+        {
+            "deleted": false,
+            "endDatetime": "2024-03-10T20:18:27.746148-04:00",
+            "extras": {
+            },
+            "index": 2,
+            "label": "Eyes Closed",
+            "originalEndDatetime": "2024-03-10T20:18:27.744386-04:00",
+            "originalStartDatetime": "2024-03-10T20:18:12.741904-04:00",
+            "port": "Baseline EmotivPRO",
+            "startDatetime": "2024-03-10T20:18:12.745139-04:00",
+            "type": "interval",
+            "uuid": "9c7393a7-ac98-4bec-863a-172d6d4c8d92",
+            "value": 3
+        }
+    ],
+    "connectionType": "bluetooth",
+    "demographics": {
+        "birthday": "1900-01-01",
+        "countryOfInfluence": {
+            "iso": "",
+            "printable": ""
+        },
+        "countryOfResidence": {
+            "iso": "",
+            "printable": ""
+        },
+        "gender": "U"
+    },
+    "exportApp": "com.emotiv.emotivpro",
+    "exportTime": "2024-03-11T00:40:00.229-04:00",
+    "headsetType": "MN8",
+    "mappings": null,
+    "mentalCommandActions": {
+        "Disappear": 8192,
+        "Drop": 16,
+        "Left": 32,
+        "Lift": 8,
+        "Neutral": 1,
+        "Pull": 4,
+        "Push": 2,
+        "Right": 64,
+        "Rotate Backward": 4096,
+        "Rotate Clockwise": 512,
+        "Rotate Counter-Clockwise": 1024,
+        "Rotate Forward": 2048,
+        "Rotate Left": 128,
+        "Rotate Right": 256
+    },
+    "montageType": "UNKNOWN",
+    "recordId": "1a6d404f-7770-47b6-822a-488fc219fbe2",
+    "user": "kshapovalenko"
+}
