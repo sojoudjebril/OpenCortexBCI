@@ -16,8 +16,12 @@ from typing import Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor
 from brainflow.board_shim import BoardShim, BoardIds
 
-from opencortex.neuroengine.models.classifier import Classifier
+import opencortex.neuroengine.flux.base.operators  # Needed to enable >> and + operators
 from opencortex.neuroengine.flux.base.parallel import Parallel
+from opencortex.neuroengine.flux.base.pipe_config import PipelineConfig
+from opencortex.neuroengine.flux.base.processor_group import ProcessorGroup
+from opencortex.neuroengine.models.classifier import Classifier
+from opencortex.neuroengine.flux.stream_node import StreamLSL
 from opencortex.neuroengine.flux.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.quality_estimator import QualityEstimator
 from opencortex.neuroengine.network.lsl_stream import (
@@ -92,11 +96,37 @@ class CortexEngine:
         self.over_sample = config.get('oversample', True)
         self.update_interval_ms = config.get('update_buffer_speed_ms', 100)
 
-        # Processing pipeline
+
+        
+        # pipeline1 = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) >> StreamLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names, fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        # pipeline2 = QualityEstimator(quality_thresholds=self.quality_thresholds) >> StreamLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names, fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        
+        # configs = [
+        #     PipelineConfig(
+        #         pipeline=pipeline1,
+        #         name="BandPowerPipeline"
+        #     ),
+        #     PipelineConfig(
+        #         pipeline=pipeline2,
+        #         name="QualityPipeline"
+        #     )
+        # ]   
+        
+        # self.pipeline = ProcessorGroup(
+        #     pipelines=configs,
+        #     name="CortexEnginePipeline",
+        #     max_workers=2,
+        #     wait_for_all=False
+        # )
+        
         self.pipeline = Parallel(
             band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names),
             quality=QualityEstimator(quality_thresholds=self.quality_thresholds)
         )
+        
+        self.eeg_streamer = StreamLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate, source_id=self.board.get_device_name(self.board_id))
+        self.band_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) >> StreamLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names, fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+    
 
         # Data buffers
         self.filtered_eeg = np.zeros((len(self.eeg_channels) + 1, self.num_points))
@@ -116,7 +146,7 @@ class CortexEngine:
         self._calculate_timing_parameters()
 
         # Initialize LSL outlets
-        self._init_lsl_outlets()
+        # self._init_lsl_outlets()
 
         logging.info("StreamEngine initialized")
 
@@ -132,18 +162,18 @@ class CortexEngine:
         if self.slicing_trigger > self.nclasses:
             self.slicing_trigger = self.nclasses
 
-    def _init_lsl_outlets(self):
-        """Initialize LSL output streams."""
-        device_name = self.board.get_device_name(self.board_id)
+    # def _init_lsl_outlets(self):
+    #     """Initialize LSL output streams."""
+    #     device_name = self.board.get_device_name(self.board_id)
 
-        self.eeg_outlet = start_lsl_eeg_stream(
-            channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
-        self.inference_outlet = start_lsl_inference_stream(
-            channels=1, fs=self.sampling_rate, source_id=device_name)
-        self.band_powers_outlet = start_lsl_power_bands_stream(
-            channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
-        self.quality_outlet = start_lsl_quality_stream(
-            channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
+    #     self.eeg_outlet = start_lsl_eeg_stream(
+    #         channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
+    #     self.inference_outlet = start_lsl_inference_stream(
+    #         channels=1, fs=self.sampling_rate, source_id=device_name)
+    #     self.band_powers_outlet = start_lsl_power_bands_stream(
+    #         channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
+    #     self.quality_outlet = start_lsl_quality_stream(
+    #         channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
 
     # ===================== MAIN ENGINE CONTROL =====================
 
@@ -225,23 +255,34 @@ class CortexEngine:
 
             # Process through pipeline
             outputs = self.pipeline(self.filtered_eeg[0:len(self.eeg_channels)])
+            
+            # Extract outputs
+            # outputs is a dict with keys 'band_power' and 'quality'
+
+            
             band_powers = outputs["band_power"]
             quality_scores = outputs["quality"]
-
+            
+            # print("Quality Scores:", quality_scores)
+            
+            # self.eeg_streamer.push_function(self.eeg_streamer.outlet, self.filtered_eeg, start_eeg, end_eeg, 0)
+            # self.eeg_streamer(self.filtered_eeg)
+            band_powers_2 = self.band_pipeline(self.filtered_eeg[0:len(self.eeg_channels)])
+            
             # Push to LSL streams
-            #push_lsl_band_powers(self.band_powers_outlet, band_powers, ts)
-            push_lsl_quality(self.quality_outlet, quality_scores)
-            push_lsl_raw_eeg(self.eeg_outlet, self.filtered_eeg, start_eeg, end_eeg, 0, ts)  # chunk_data=True
+            # push_lsl_band_powers(self.band_powers_outlet, band_powers, ts)
+            # push_lsl_quality(self.quality_outlet, quality_scores)
+            # push_lsl_raw_eeg(self.eeg_outlet, self.filtered_eeg, start_eeg, end_eeg, 0, ts)  # chunk_data=True
 
             # Create data packet for interfaces
-            stream_data = StreamData(raw_eeg=self.raw_data.copy(),
-                                     filtered_eeg=self.filtered_eeg.copy(),
-                                     band_powers=band_powers,
-                                     quality_scores=quality_scores,
-                                     timestamp=time.time(),
-                                     trigger=int(trigger[-1]) if len(trigger) > 0 else 0)
-            # Notify all registered interfaces
-            self._notify_data_update(stream_data)
+            # stream_data = StreamData(raw_eeg=self.raw_data.copy(),
+            #                          filtered_eeg=self.filtered_eeg.copy(),
+            #                          band_powers=band_powers,
+            #                          quality_scores=quality_scores,
+            #                          timestamp=time.time(),
+            #                          trigger=int(trigger[-1]) if len(trigger) > 0 else 0)
+            # # Notify all registered interfaces
+            # self._notify_data_update(stream_data)
 
         except Exception as e:
             logging.error(f"Error updating data: {e}")
