@@ -24,5 +24,5 @@ class AddNode(Node):
 
 class LogNode(Node):
     def __call__(self, data):
-        print(f"[LogNode] Data: {data}")
+        print(f"[LogNode] Data: {data}, shape: {getattr(data, 'shape', 'N/A')}, type: {type(data)}")
         return data
