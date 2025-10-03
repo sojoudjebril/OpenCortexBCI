@@ -1,0 +1,103 @@
+"""
+Nodes for extracting features/labels and scaling EEG data
+"""
+import numpy as np
+import logging
+from typing import Optional, Dict, Tuple, Literal
+from sklearn.preprocessing import LabelEncoder
+from opencortex.neuroengine.flux.base.node import Node
+
+
+
+class XyNode(Node):
+    """
+    A node that extracts X (features) and y (labels) from epoched data.
+    Optionally applies label encoding.
+    """
+
+    def __init__(
+            self,
+            apply_label_encoding: bool = True,
+            label_mapping: Optional[Dict[int, int]] = None,
+            name: str = None
+    ):
+        """
+        Initialize the ExtractXyNode.
+
+        Args:
+            apply_label_encoding: If True, apply sklearn LabelEncoder to labels.
+            label_mapping: Optional dictionary to map original labels to new values
+                          before encoding. Example: {1: 0, 3: 1} maps targets to 0, non-targets to 1.
+            name: Optional name for this node.
+        """
+        super().__init__(name or "ExtractXy")
+        self.apply_label_encoding = apply_label_encoding
+        self.label_mapping = label_mapping
+        self.label_encoder = LabelEncoder() if apply_label_encoding else None
+        self.is_fitted = False
+
+    def __call__(
+            self,
+            data: Tuple[np.ndarray, np.ndarray]
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Extract and potentially encode X and y.
+
+        Args:
+            data: Tuple of (epochs_data, labels)
+                 - epochs_data: shape (n_epochs, n_channels, n_times)
+                 - labels: shape (n_epochs,)
+
+        Returns:
+            Tuple of (X, y)
+            - X: shape (n_epochs, n_channels, n_times)
+            - y: shape (n_epochs,) - potentially encoded
+        """
+        X, y = data
+
+        logging.info(f"Extracting X and y: X shape={X.shape}, y shape={y.shape}")
+
+        # Apply label mapping if specified
+        if self.label_mapping is not None:
+            y_mapped = y.copy()
+            for old_label, new_label in self.label_mapping.items():
+                y_mapped[y == old_label] = new_label
+            y = y_mapped
+            logging.debug(f"Applied label mapping: {self.label_mapping}")
+            logging.debug(f"Mapped labels: {np.unique(y)}")
+
+        # Apply label encoding if specified
+        if self.apply_label_encoding:
+            if not self.is_fitted:
+                y = self.label_encoder.fit_transform(y)
+                self.is_fitted = True
+                logging.info(
+                    f"Fitted LabelEncoder. Classes: {self.label_encoder.classes_} "
+                    f"-> {np.unique(y)}"
+                )
+            else:
+                y = self.label_encoder.transform(y)
+                logging.debug(f"Transformed labels using fitted encoder")
+
+        logging.info(f"Final: X shape={X.shape}, y shape={y.shape}, unique labels={np.unique(y)}")
+
+        return X, y
+
+    def inverse_transform(self, y: np.ndarray) -> np.ndarray:
+        """
+        Inverse transform encoded labels back to original labels.
+
+        Args:
+            y: Encoded labels
+
+        Returns:
+            Original labels
+        """
+        if self.label_encoder is None or not self.is_fitted:
+            return y
+        return self.label_encoder.inverse_transform(y)
+
+    def __str__(self):
+        status = "fitted" if self.is_fitted else "not fitted"
+        return (f"{self.__class__.__name__}"
+                f"(encoding={self.apply_label_encoding}, status={status}, name={self.name})")

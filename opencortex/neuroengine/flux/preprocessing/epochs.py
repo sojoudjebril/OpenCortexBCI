@@ -1,10 +1,8 @@
 import logging
+import numpy as np
 from multiprocessing import RawArray
 from typing import Optional, Tuple, Dict, Union, List
-
-import numpy as np
 from mne import Epochs
-
 from opencortex.neuroengine.flux.base.node import Node
 
 
