@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     # Convert to MNE format
     raw_data = convert_to_mne(
-        eeg, trigger, fs=fs, chs=chs, recompute=False
+        eeg, trigger, fs=fs, chs=chs, recompute=False, rescale=1e6
     )
 
     # ========================================================================
@@ -45,22 +45,23 @@ if __name__ == "__main__":
     # Time series plot
     plt.subplot(2, 1, 1)
     times = np.arange(raw_data.n_times) / fs
+    max_peak = np.max(np.abs(raw_data.get_data(picks=chs)))
     for i, ch in enumerate(chs):
         ch_data = raw_data.get_data(picks=[ch])[0]
-        plt.plot(times, ch_data + i * 100, label=ch, alpha=0.7)
+        plt.plot(times, ch_data + max_peak * i, label=ch, alpha=0.7)
     plt.xlabel('Time (s)')
     plt.ylabel('Amplitude (µV)')
     plt.title('Raw EEG Data - Before ASR')
     plt.legend(loc='upper right', ncol=len(chs))
     plt.grid(True, alpha=0.3)
-    plt.xlim(0, 20)  # Show first 20 seconds
+    plt.xlim(0, 50)  # Show first 20 seconds
 
     # PSD plot
     plt.subplot(2, 1, 2)
     psd_raw = raw_data.compute_psd(fmin=0, fmax=fs / 2)
     psd_raw.plot(axes=plt.gca(), show=False)
     plt.title('Power Spectral Density - Before ASR')
-
+    plt.tight_layout()
     plt.show()
 
     # ========================================================================
@@ -78,7 +79,7 @@ if __name__ == "__main__":
             ASRNode(
                 sfreq=fs,
                 cutoff=5.0,  # Standard cutoff - lower = more aggressive
-                calibration_time=15.0,  # Use first 15 seconds,
+                calibration_time=5.0,  # Use first 5 seconds,
                 calibrate=True,
                 name="ASR_Cleaner"
             )
@@ -98,15 +99,16 @@ if __name__ == "__main__":
     # Time series plot
     plt.subplot(2, 1, 1)
     times = np.arange(cleaned_data.n_times) / fs
+    max_peak = np.max(np.abs(cleaned_data.get_data(picks=chs)))
     for i, ch in enumerate(chs):
         ch_data = cleaned_data.get_data(picks=[ch])[0]
-        plt.plot(times, ch_data + i * 100, label=ch, alpha=0.7)
+        plt.plot(times, ch_data + max_peak * i, label=ch, alpha=0.7)
     plt.xlabel('Time (s)')
     plt.ylabel('Amplitude (µV)')
     plt.title('Cleaned EEG Data - After ASR')
     plt.legend(loc='upper right', ncol=len(chs))
     plt.grid(True, alpha=0.3)
-    plt.xlim(0, 20)  # Show first 20 seconds
+    plt.xlim(0, 50)  # Show first 20 seconds
 
     # PSD plot
     plt.subplot(2, 1, 2)
@@ -126,7 +128,7 @@ if __name__ == "__main__":
 
     # Show a 10-second window where artifacts might be visible
     start_time = 20  # seconds
-    end_time = 30  # seconds
+    end_time = 50  # seconds
     start_sample = int(start_time * fs)
     end_sample = int(end_time * fs)
     times_segment = np.arange(start_sample, end_sample) / fs
@@ -202,7 +204,7 @@ if __name__ == "__main__":
         asr_pipeline = (
                 NotchFilterNode((50, 60)) >>
                 BandPassFilterNode(0.5, 40.0) >>
-                ASRNode(sfreq=fs, cutoff=cutoff, calibration_time=15.0, name=f"ASR_{cutoff}")
+                ASRNode(sfreq=fs, cutoff=cutoff, calibration_time=5.0, calibrate=True, name=f"ASR_{cutoff}")
         )
 
         cleaned = asr_pipeline(raw_data)
