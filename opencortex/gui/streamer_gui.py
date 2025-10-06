@@ -10,6 +10,7 @@ import threading
 import time
 import numpy as np
 import logging
+import pylsl
 import pyqtgraph as pg
 import os
 import yaml
@@ -19,7 +20,7 @@ from opencortex.neuroengine.core.cortex_engine import CortexEngine
 from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.features.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.features.quality_estimator import QualityEstimator
-from opencortex.gui.frequency_band_widget import FrequencyBandPanel
+from opencortex.gui.widgets.frequency_band_widget import FrequencyBandPanel
 from opencortex.gui.gui_adapter import GUIAdapter
 from opencortex.neuroengine.network.lsl_stream import LSLStreamThread, start_lsl_eeg_stream, start_lsl_power_bands_stream, \
     start_lsl_inference_stream, start_lsl_quality_stream, push_lsl_raw_eeg, push_lsl_inference, \
@@ -158,6 +159,8 @@ class StreamerGUI:
 
         self.win = pg.GraphicsLayoutWidget(title='OpenCortex Streamer', size=(1920, 1080))
         self.win.setWindowTitle('OpenCortex Streamer')
+        self.win.setWindowIcon(QtWidgets.QApplication.style().standardIcon(QtWidgets.QStyle.SP_ComputerIcon))
+
         self.win.show()
         lsl_panel = self.create_lsl_panel()
         processing_panel = self.create_parameters_panel()
@@ -198,6 +201,8 @@ class StreamerGUI:
         self.plot_timer = QtCore.QTimer()
         self.plot_timer.timeout.connect(self.update_plot)
         self.plot_timer.start(self.update_plot_speed_ms)
+        
+    
 
         # Initialize LSL streams
         self.eeg_outlet = start_lsl_eeg_stream(channels=self.eeg_names, fs=self.sampling_rate,
