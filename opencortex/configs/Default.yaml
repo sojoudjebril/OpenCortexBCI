@@ -9,7 +9,7 @@ quality_thresholds:
   - [-100, -50, 'yellow', 0.5]
   - [-50, 50, 'green', 1.0]
   - [50, 100, 'yellow', 0.5]
-update_buffer_speed_ms: 1000
+update_buffer_speed_ms: 100
 update_plot_speed_ms: 100
 start_training_marker: 98
 end_training_marker: 99
