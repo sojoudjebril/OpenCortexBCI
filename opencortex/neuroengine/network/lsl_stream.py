@@ -383,7 +383,7 @@ def connect_lsl_marker_stream(stream_name='CortexMarkers', stream_type='Markers'
 
 
 def start_lsl_stream(channels, fs, source_id, stream_name, stream_type, 
-                     channel_type=None, channel_unit=None, add_trigger=False):
+                     channel_type=None, channel_unit=None, add_trigger=False, desc=None):
     """
     Generic function to start any LSL stream
     
@@ -406,14 +406,18 @@ def start_lsl_stream(channels, fs, source_id, stream_name, stream_type,
             ch_count = len(channels) + (1 if add_trigger else 0)
             ch_names = channels
         
-        info = pylsl.StreamInfo(
-            name=stream_name,
-            type=stream_type,
-            channel_count=ch_count,
-            nominal_srate=fs,
-            channel_format='float32',
-            source_id=source_id
-        )
+        if desc is not None:
+            info = desc
+        else:
+            info = pylsl.StreamInfo(
+                name=stream_name,
+                type=stream_type,
+                channel_count=ch_count,
+                nominal_srate=fs,
+                channel_format='float32',
+                source_id=source_id
+            )
+        
         
         # Add channel metadata if provided
         if channel_type:
@@ -440,25 +444,25 @@ def start_lsl_stream(channels, fs, source_id, stream_name, stream_type,
         raise
 
 
-def start_lsl_eeg_stream(channels, fs, source_id, stream_name='CortexEEG', type='EEG'):
+def start_lsl_eeg_stream(channels, fs, source_id, stream_name='CortexEEG', type='EEG', desc=None, add_trigger=False):
     """Start an LSL stream for EEG data"""
     return start_lsl_stream(channels, fs, source_id, stream_name, type, 
-                           channel_type='EEG', channel_unit='microvolts', add_trigger=True)
+                           channel_type='EEG', channel_unit='microvolts', add_trigger=add_trigger, desc=desc)
 
 
-def start_lsl_power_bands_stream(channels, fs, source_id, stream_name='CortexPSD', type='PSD'):
+def start_lsl_power_bands_stream(channels, fs, source_id, stream_name='CortexPSD', type='PSD', desc=None, add_trigger=False):
     """Start an LSL stream for power bands data"""
-    return start_lsl_stream(channels, fs, source_id, stream_name, type, channel_type='PSD')
+    return start_lsl_stream(channels, fs, source_id, stream_name, type, channel_type='PSD', desc=desc)
 
 
-def start_lsl_inference_stream(channels, fs, source_id, stream_name='CortexInference', type='Inference'):
+def start_lsl_inference_stream(channels, fs, source_id, stream_name='CortexInference', type='Inference', desc=None):
     """Start an LSL stream for prediction data"""
-    return start_lsl_stream(channels, fs, source_id, stream_name, type)
+    return start_lsl_stream(channels, fs, source_id, stream_name, type, desc=desc)
 
 
-def start_lsl_quality_stream(channels, fs, source_id, stream_name='CortexQuality', type='Qualities'):
+def start_lsl_quality_stream(channels, fs, source_id, stream_name='CortexQuality', type='Qualities', desc=None):
     """Start an LSL stream for quality data"""
-    return start_lsl_stream(channels, fs, source_id, stream_name, type)
+    return start_lsl_stream(channels, fs, source_id, stream_name, type, desc=desc)
 
 
 def _prepare_data_for_push(data, timestamps):

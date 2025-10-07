@@ -1,3 +1,4 @@
+import os
 import opencortex.neuroengine.flux.base.operators  # Enable >>
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
 from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
@@ -7,8 +8,10 @@ import matplotlib.pyplot as plt
 fs = 250
 chs = ["Fz", "C3", "Cz", "C4", "Pz", "PO7", "Oz", "PO8"]
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+print("Script directory:", script_dir)
 
-eeg, trigger, dataframe = load_data("../../data/aep/auditory_erp_eyes_open_S1.csv", fs=fs, skiprows=5, delimiter=',')
+eeg, trigger, dataframe = load_data(os.path.join(script_dir, "../../data/aep/auditory_erp_eyes_open_S1.csv"), fs=fs, skiprows=5, delimiter=',')
 print("Loaded data with shape:" + str(eeg.shape) + " and trigger shape: " + str(trigger.shape))
 print("That means we have " + str(eeg.shape[0]) + " samples and " + str(eeg.shape[1]) + " channels.")
 
