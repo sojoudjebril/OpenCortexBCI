@@ -8,19 +8,20 @@ import numpy as np
 import logging
 import pytorch_lightning as pl
 import torch
-from typing import Optional, Callable, Tuple, Any, Dict, Union
+from typing import Optional, Callable, Tuple, Any, Dict, Union, Literal
 from opencortex.neuroengine.flux.base.node import Node
 from pathlib import Path
 
 
 class LightningNode(Node):
     """
-    Trains/evaluates PyTorch Lightning models.
+    Trains/evaluates PyTorch Lightning models with train/inference modes.
     """
 
     def __init__(
             self,
             model: Any,
+            mode: Literal['train', 'inference'] = 'train',
             trainer_config: Optional[Dict] = None,
             train_func: Optional[Callable] = None,
             eval_func: Optional[Callable] = None,
@@ -30,6 +31,7 @@ class LightningNode(Node):
         """
         Args:
             model: PyTorch Lightning module
+            mode: 'train' (trains model) or 'inference' (uses existing model)
             trainer_config: Config dict for pl.Trainer
             train_func: Custom training function (model, train_loader, val_loader) -> model
             eval_func: Custom eval function (model, val_loader) -> metrics
@@ -37,15 +39,18 @@ class LightningNode(Node):
         """
         super().__init__(name or "Lightning")
         self.model = model
+        self.mode = mode
         self.trainer_config = trainer_config or {}
         self.train_func = train_func
         self.eval_func = eval_func
         self.checkpoint_path = checkpoint_path
         self.trainer = None
+        self.is_trained = False
 
         # Load checkpoint if provided
         if checkpoint_path:
             self.model = model.__class__.load_from_checkpoint(checkpoint_path)
+            self.is_trained = True
             logging.info(f"Loaded checkpoint: {checkpoint_path}")
 
     def __call__(
@@ -57,35 +62,48 @@ class LightningNode(Node):
             data: (train_loader, val_loader)
 
         Returns:
-            Trained model
+            - In 'train' mode: Trained model
+            - In 'inference' mode: (train_loader, val_loader) passed through
         """
 
-        train_loader, val_loader = data
+        #TODO why logger doesn't work?
+        if self.mode == 'train':
+            train_loader, val_loader = data
+            # Training mode
+            if self.train_func:
+                # Custom training
+                self.model = self.train_func(self.model, train_loader, val_loader)
+            else:
+                # Default Lightning training
+                self.trainer = pl.Trainer(**self.trainer_config)
+                logging.info(self.trainer_config)
+                self.trainer.fit(
+                    self.model,
+                    train_dataloaders=train_loader,
+                    val_dataloaders=val_loader
+                )
 
-        if self.train_func:
-            # Custom training
-            self.model = self.train_func(self.model, train_loader, val_loader)
-        else:
-            # Default Lightning training
-            self.trainer = pl.Trainer(**self.trainer_config)
-            self.trainer.fit(
-                self.model,
-                train_dataloaders=train_loader,
-                val_dataloaders=val_loader
-            )
+            self.is_trained = True
+            logging.info("Training complete")
 
-        logging.info("Training complete")
+            # Evaluate if provided
+            if self.eval_func and val_loader:
+                metrics = self.eval_func(self.model, val_loader)
+                logging.info(f"Validation metrics: {metrics}")
+            return self.model
 
-        # Evaluate if provided
-        if self.eval_func and val_loader:
-            metrics = self.eval_func(self.model, val_loader)
-            logging.info(f"Validation metrics: {metrics}")
+        elif self.mode == 'inference':
+            test_loader, _ = data
+            # Inference mode - just pass through
+            if not self.is_trained:
+                logging.warning("Model not trained yet, predictions may be random")
 
-        return self.model
+            return self.predict(test_loader)
+
+
 
     def predict(self, dataloader: Any) -> np.ndarray:
         """Make predictions."""
-
         if self.trainer is None:
             self.trainer = pl.Trainer(**self.trainer_config)
 
@@ -97,5 +115,39 @@ class LightningNode(Node):
 
         return predictions.cpu().numpy()
 
+    def save_checkpoint(self, path: Union[str, Path]):
+        """Save model checkpoint."""
+        if not self.is_trained:
+            logging.warning("Saving untrained model checkpoint")
+
+        if self.trainer is None:
+            self.trainer = pl.Trainer(**self.trainer_config)
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.trainer.save_checkpoint(str(path))
+        logging.info(f"Saved checkpoint: {path}")
+
+    def get_state(self) -> Dict[str, Any]:
+        """Get node state for serialization."""
+        return {
+            'checkpoint_path': str(self.checkpoint_path) if self.checkpoint_path else None,
+            'mode': self.mode,
+            'is_trained': self.is_trained,
+            'trainer_config': self.trainer_config
+        }
+
+    def set_state(self, state: Dict[str, Any]):
+        """Set node state from serialization."""
+        if state.get('checkpoint_path'):
+            self.checkpoint_path = Path(state['checkpoint_path'])
+            self.model = self.model.__class__.load_from_checkpoint(self.checkpoint_path)
+            self.is_trained = True
+            logging.info(f"Restored model from checkpoint: {self.checkpoint_path}")
+
+        self.mode = state.get('mode', 'train')
+        self.is_trained = state.get('is_trained', False)
+
     def __str__(self):
-        return f"{self.__class__.__name__}(model={self.model.__class__.__name__})"
+        status = "trained" if self.is_trained else "untrained"
+        return f"{self.__class__.__name__}(model={self.model.__class__.__name__}, mode={self.mode}, status={status})"

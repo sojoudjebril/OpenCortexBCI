@@ -19,13 +19,16 @@ from brainflow.board_shim import BoardShim, BoardIds
 
 import opencortex.neuroengine.flux.base.operators  # Needed to enable >> and + operators
 from opencortex.neuroengine.flux.base.parallel import Parallel
+from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.features.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.features.quality_estimator import QualityEstimator
 from opencortex.neuroengine.flux.base.pipe_config import PipelineConfig
 from opencortex.neuroengine.flux.base.processor_group import ProcessorGroup
+from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
+from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
 from opencortex.neuroengine.flux.simple_nodes import LogNode
 from opencortex.neuroengine.models.classifier import Classifier
-from opencortex.neuroengine.flux.stream_node import StreamLSL
+from opencortex.neuroengine.flux.stream_node import StreamOutLSL
 from opencortex.neuroengine.network.lsl_stream import (
     start_lsl_eeg_stream, start_lsl_power_bands_stream,
     start_lsl_inference_stream, start_lsl_quality_stream,
@@ -63,7 +66,7 @@ class CortexEngine:
         self.board = board
         self.config = config
         self.window_size = window_size
-        
+
         self.pid = os.getpid()
         logging.info(f"Starting CortexEngine with PID {self.pid}")
 
@@ -97,23 +100,40 @@ class CortexEngine:
         self.epoch_length_ms = config.get('epoch_length_ms', 1000)
         self.baseline_ms = config.get('baseline_ms', 100)
         self.quality_thresholds = config.get('quality_thresholds',
-            [(-100, -50, 'yellow', 0.5), (-50, 50, 'green', 1.0), (50, 100, 'yellow', 0.5)])
+                                             [(-100, -50, 'yellow', 0.5), (-50, 50, 'green', 1.0),
+                                              (50, 100, 'yellow', 0.5)])
         self.over_sample = config.get('oversample', True)
         self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
 
+        lsl_pipeline = StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate,
+                                    source_id=self.board.get_device_name(self.board_id)) \
+                       >> LogNode(name="EEG") \
+                       >> BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+                       >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
+                                       fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        # TODO uniform IN and OUT of nodes, add error checking and/or handling
+        # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
-
-        pipeline1 = StreamLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate, source_id=self.board.get_device_name(self.board_id)) \
-                        >> LogNode("eeg") \
-                        >> BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
-                        >> StreamLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names, fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
-
+        signal_quality_pipeline = Sequential(
+            NotchFilterNode((50, 60), name='NotchFilter'),
+            BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
+            StreamOutLSL(stream_type='eeg', name='FilteredEEGLSL', channels=self.eeg_names, fs=self.sampling_rate,
+                         source_id=board.get_device_name(self.board_id)),
+            QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
+            StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names, fs=self.sampling_rate,
+                         source_id=board.get_device_name(self.board_id)),
+            name='SignalQualityPipeline'
+        )
 
         configs = [
             PipelineConfig(
-                pipeline=pipeline1,
+                pipeline=lsl_pipeline,
                 name="StreamerPipeline"
             ),
+            PipelineConfig(
+                pipeline=signal_quality_pipeline,
+                name="QualityPipeline"
+            )
         ]
 
         self.pipeline = ProcessorGroup(
@@ -127,9 +147,6 @@ class CortexEngine:
         #     band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names),
         #     quality=QualityEstimator(quality_thresholds=self.quality_thresholds)
         # )
-
-    
-
 
         # Data buffers
         self.filtered_eeg = np.zeros((len(self.eeg_channels) + 1, self.num_points))
@@ -201,7 +218,7 @@ class CortexEngine:
     def stop(self):
         """Stop the StreamEngine."""
         self.running = False
-        
+
         # Remove all callbacks
         self.data_callbacks.clear()
         self.event_callbacks.clear()
@@ -232,7 +249,7 @@ class CortexEngine:
                     self._notify_event('error', {'message': str(e)})
 
             # Small sleep to prevent 100% CPU usage
-            time.sleep(0.001) # TODO: check if needed (NOTE: on Greg's PC this reduces CPU load from ~20% to ~8%)
+            time.sleep(0.001)  # TODO: check if needed (NOTE: on Greg's PC this reduces CPU load from ~20% to ~8%)
 
     def _update_data(self):
         """Core data processing - heart of the engine."""
@@ -476,7 +493,7 @@ class HeadlessCortexEngine(CortexEngine):
 
     def __init__(self, board, config, window_size=1, log_file=None):
         super().__init__(board, config, window_size)
-
+        time.sleep(window_size)
         if log_file:
             logging.basicConfig(
                 filename=log_file,
@@ -489,58 +506,8 @@ class HeadlessCortexEngine(CortexEngine):
         self.start()
         try:
             while self.running:
-                # time.sleep(1)
                 time.sleep(0.1)  # Reduced sleep time for more responsive shutdown
         except KeyboardInterrupt:
             logging.info("Received interrupt signal")
         finally:
             self.stop()
-
-
-# ===================== EXAMPLE USAGE =====================
-
-def example_headless_usage():
-    """Example of running StreamEngine headlessly."""
-    from brainflow.board_shim import BoardShim, BrainFlowInputParams
-
-    # Initialize board
-    params = BrainFlowInputParams()
-
-    board = BoardShim(BoardIds.SYNTHETIC_BOARD, params)  # Synthetic board for testing
-
-    # Load config
-    config = {
-        'model': 'LDA',
-        'nclasses': 3,
-        'flash_time': 250,
-        'update_buffer_speed_ms': 100
-    }
-
-    # Create headless engine
-    engine = HeadlessCortexEngine(board, config)
-
-    # Register callbacks for monitoring
-    def data_monitor(data: StreamData):
-        print(f"Data update: {data.timestamp}")
-
-    def event_monitor(event_type: str, data: Dict):
-        print(f"Event: {event_type} - {data}")
-
-    engine.register_data_callback(data_monitor)
-    engine.register_event_callback(event_monitor)
-
-    # Start streaming
-    board.prepare_session()
-    board.start_stream()
-
-    # Run engine
-    engine.run_forever()
-
-    # Cleanup
-    board.stop_stream()
-    board.release_session()
-
-
-if __name__ == "__main__":
-    # Run headless example
-    example_headless_usage()

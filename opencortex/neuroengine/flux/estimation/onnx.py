@@ -10,7 +10,7 @@ import onnxruntime as ort
 from typing import Optional, Callable, Tuple, Any, Dict, Union
 from opencortex.neuroengine.flux.base.node import Node
 from pathlib import Path
-
+#TODO check scikit2onnx
 class ONNXNode(Node):
     """
     ONNX inference only.

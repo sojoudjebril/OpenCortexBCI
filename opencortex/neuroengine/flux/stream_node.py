@@ -8,7 +8,7 @@ from opencortex.neuroengine.network.lsl_stream import (
     push_lsl_raw_eeg, push_lsl_band_powers, push_lsl_inference, push_lsl_quality
 )
 
-class StreamLSL(Node):
+class StreamOutLSL(Node):
     """
     Node to stream data to LSL.
     Supports multiple data types: raw EEG, band powers, inference results, quality metrics.
