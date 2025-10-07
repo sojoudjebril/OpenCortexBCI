@@ -19,3 +19,12 @@ class Sequential(Node):
         for step in self.steps:
             data = step(data)
         return data
+
+    def __repr__(self) -> str:
+        return "Sequential({})".format(self.steps)
+
+    def get_node(self, node_name: str) -> Any:
+        for node in self.steps:
+            if node.name == node_name:
+                return node
+        return None

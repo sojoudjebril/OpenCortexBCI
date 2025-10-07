@@ -18,3 +18,9 @@ class Parallel(Node):
 
     def __call__(self, data: Any) -> Dict[str, Any]:
         return {name: branch(data) for name, branch in self.branches.items()}
+
+    def get_branches(self, branch_name):
+        for name, branch in self.branches.items():
+            if branch_name == name:
+                return branch
+        return None
