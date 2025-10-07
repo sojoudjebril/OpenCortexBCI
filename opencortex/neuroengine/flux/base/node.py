@@ -1,3 +1,10 @@
+"""
+Author: Michele Romani
+Email: michele.romani.zaltieri@gmail.com
+Copyright 2025 Michele Romani
+"""
+
+
 from abc import ABC, abstractmethod
 from typing import Any
 

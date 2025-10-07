@@ -1,3 +1,8 @@
+"""
+Author: Michele Romani
+Email: michele.romani.zaltieri@gmail.com
+Copyright 2025 Michele Romani
+"""
 import threading
 from typing import Any, Dict, Callable, Optional, List
 from concurrent.futures import ThreadPoolExecutor, Future

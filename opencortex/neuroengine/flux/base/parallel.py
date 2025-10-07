@@ -1,3 +1,8 @@
+"""
+Author: Michele Romani
+Email: michele.romani.zaltieri@gmail.com
+Copyright 2025 Michele Romani
+"""
 from opencortex.neuroengine.flux.base.node import Node
 from typing import Any, Dict
 

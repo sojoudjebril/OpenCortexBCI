@@ -1,4 +1,8 @@
-# operators.py
+"""
+Author: Michele Romani
+Email: michele.romani.zaltieri@gmail.com
+Copyright 2025 Michele Romani
+"""
 from opencortex.neuroengine.flux.base.node import Node
 from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.base.parallel import Parallel
