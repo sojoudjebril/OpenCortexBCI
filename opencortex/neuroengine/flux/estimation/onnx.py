@@ -58,6 +58,7 @@ class ONNXNode(Node):
         if predictions.ndim > 1:
             predictions = predictions.argmax(axis=1)
 
+
         return predictions
 
     def _extract_data(self, loader: Any) -> np.ndarray:

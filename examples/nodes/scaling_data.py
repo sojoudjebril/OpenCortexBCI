@@ -7,7 +7,7 @@ if __name__ == "__main__":
     )
     from opencortex.neuroengine.flux.preprocessing.epochs import EpochingNode
     from opencortex.utils.loader import load_data, convert_to_mne
-    from opencortex.neuroengine.flux.preprocessing.xy import XyNode
+    from opencortex.neuroengine.flux.preprocessing.extract import ExtractNode
     from opencortex.neuroengine.flux.preprocessing.scaler import ScalerNode, ChannelwiseStandardScaler, ChannelwiseRobustScaler
     from opencortex.neuroengine.flux.base.sequential import Sequential
     import numpy as np
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     print("Building pipelines with generic ScalerNode")
     print("=" * 60)
 
-    from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
+    from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, LabelEncoder
 
     # Example 1: Using sklearn StandardScaler
     pipeline_sklearn_standard = Sequential(
@@ -60,11 +60,7 @@ if __name__ == "__main__":
             event_id={'T': 1, 'NT': 3},
             name="Epocher"
         ),
-        XyNode(
-            apply_label_encoding=True,
-            label_mapping={1: 0, 3: 1},
-            name="ExtractXy"
-        ),
+        ExtractNode(None, apply_label_encoding=True, label_mapping={1: 0, 3: 1}, name="ExtractXy"),
         ScalerNode(
             scaler=StandardScaler(),
             per_channel=True,
@@ -87,11 +83,7 @@ if __name__ == "__main__":
             event_id={'T': 1, 'NT': 3},
             name="Epocher"
         ),
-        XyNode(
-            apply_label_encoding=True,
-            label_mapping={1: 0, 3: 1},
-            name="ExtractXy"
-        ),
+        ExtractNode(None, apply_label_encoding=True, label_mapping={1: 0, 3: 1}, name="ExtractXy"),
         ScalerNode(
             scaler=RobustScaler(),
             per_channel=True,
@@ -114,11 +106,7 @@ if __name__ == "__main__":
             event_id={'T': 1, 'NT': 3},
             name="Epocher"
         ),
-        XyNode(
-            apply_label_encoding=True,
-            label_mapping={1: 0, 3: 1},
-            name="ExtractXy"
-        ),
+        ExtractNode(None, apply_label_encoding=True, label_mapping={1: 0, 3: 1}, name="ExtractXy"),
         ScalerNode(
             scaler=ChannelwiseStandardScaler(),
             per_channel=True,
@@ -141,11 +129,7 @@ if __name__ == "__main__":
             event_id={'T': 1, 'NT': 3},
             name="Epocher"
         ),
-        XyNode(
-            apply_label_encoding=True,
-            label_mapping={1: 0, 3: 1},
-            name="ExtractXy"
-        ),
+        ExtractNode(None, apply_label_encoding=True, label_mapping={1: 0, 3: 1}, name="ExtractXy"),
         ScalerNode(
             scaler=ChannelwiseRobustScaler(),
             per_channel=True,
@@ -167,11 +151,7 @@ if __name__ == "__main__":
             event_id={'T': 1, 'NT': 3},
             name="Epocher"
         ),
-        XyNode(
-            apply_label_encoding=True,
-            label_mapping={1: 0, 3: 1},
-            name="ExtractXy"
-        ),
+        ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1}, name="ExtractXy"),
         ScalerNode(
             scaler=MinMaxScaler(),
             per_channel=True,

@@ -9,18 +9,14 @@ from opencortex.neuroengine.flux.base.node import Node
 
 
 
-class XyNode(Node):
+class ExtractNode(Node):
     """
     A node that extracts X (features) and y (labels) from epoched data.
     Optionally applies label encoding.
     """
 
-    def __init__(
-            self,
-            apply_label_encoding: bool = True,
-            label_mapping: Optional[Dict[int, int]] = None,
-            name: str = None
-    ):
+    def __init__(self, label_encoder, apply_label_encoding: bool = True, label_mapping: Optional[Dict[int, int]] = None,
+                 name: str = None):
         """
         Initialize the ExtractXyNode.
 
@@ -33,7 +29,7 @@ class XyNode(Node):
         super().__init__(name or "ExtractXy")
         self.apply_label_encoding = apply_label_encoding
         self.label_mapping = label_mapping
-        self.label_encoder = LabelEncoder() if apply_label_encoding else None
+        self.label_encoder = label_encoder if apply_label_encoding else None
         self.is_fitted = False
 
     def __call__(
