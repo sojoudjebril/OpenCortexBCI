@@ -23,4 +23,4 @@ class Parallel(Node):
         for name, branch in self.branches.items():
             if branch_name == name:
                 return branch
-        return None
+        raise ValueError(f"Node '{branch_name}' not found in pipeline")

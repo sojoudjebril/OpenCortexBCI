@@ -27,4 +27,4 @@ class Sequential(Node):
         for node in self.steps:
             if node.name == node_name:
                 return node
-        return None
+        raise ValueError(f"Node '{node_name}' not found in pipeline")
