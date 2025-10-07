@@ -32,6 +32,8 @@ class ProcessorGroup(Node):
         self.wait_for_all = wait_for_all
         self._results: Dict[str, Any] = {}
         self._lock = threading.Lock()
+        # For safe pipeline addition/removal
+        self._pipeline_lock = threading.Lock()
         
     def __iter__(self):
         return iter(self.pipelines)
@@ -80,10 +82,12 @@ class ProcessorGroup(Node):
         """
         self._results.clear()
 
+        with self._pipeline_lock:
+            actual_pipelines = list(self.pipelines)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all pipeline executions
             futures: Dict[Future, str] = {}
-            for pipeline_config in self.pipelines:
+            for pipeline_config in actual_pipelines:
                 future = executor.submit(
                     self._execute_pipeline,
                     pipeline_config,
@@ -107,3 +111,26 @@ class ProcessorGroup(Node):
         """Get current results (useful for non-blocking mode)."""
         with self._lock:
             return self._results.copy()
+        
+    
+    def get_pipelines(self) -> List[PipelineConfig]:
+        """Get the current list of pipeline configurations."""
+        with self._pipeline_lock:
+            return list(self.pipelines)
+        
+    def remove_pipeline(self, pipeline_name: str) -> bool:
+        """Remove a pipeline configuration by name. Returns True if removed."""
+        with self._pipeline_lock:
+            for i, pc in enumerate(self.pipelines):
+                if pc.name == pipeline_name:
+                    del self.pipelines[i]
+                    return True
+        return False
+        
+        
+    def add_pipeline(self, pipeline_config: PipelineConfig):
+        """Add a new pipeline configuration."""
+        # Thread-safe addition
+        with self._pipeline_lock:
+            self.pipelines.append(pipeline_config)
+            

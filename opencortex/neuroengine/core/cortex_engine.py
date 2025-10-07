@@ -232,7 +232,7 @@ class CortexEngine:
                     self._notify_event('error', {'message': str(e)})
 
             # Small sleep to prevent 100% CPU usage
-            time.sleep(0.001)
+            time.sleep(0.001) # TODO: check if needed (NOTE: on Greg's PC this reduces CPU load from ~20% to ~8%)
 
     def _update_data(self):
         """Core data processing - heart of the engine."""
@@ -489,7 +489,8 @@ class HeadlessCortexEngine(CortexEngine):
         self.start()
         try:
             while self.running:
-                time.sleep(1)
+                # time.sleep(1)
+                time.sleep(0.1)  # Reduced sleep time for more responsive shutdown
         except KeyboardInterrupt:
             logging.info("Received interrupt signal")
         finally:
