@@ -1,7 +1,7 @@
 # Create different pipelines
-from opencortex.neuroengine.flux.base.pipe_config import PipelineConfig
-from opencortex.neuroengine.flux.base.processor_group import ProcessorGroup
-from opencortex.neuroengine.flux.simple_nodes import LogNode, MultiplyNode, AddNode
+from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
+from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
+from opencortex.neuroengine.flux.base.simple_nodes import LogNode, MultiplyNode, AddNode
 
 
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     ]
 
     # Create and execute the processor group
-    processor_group = ProcessorGroup(
+    processor_group = PipelineGroup(
         pipelines=configs,
         name="BCI_ProcessorGroup",
         max_workers=3,

@@ -22,13 +22,13 @@ from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.features.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.features.quality_estimator import QualityEstimator
-from opencortex.neuroengine.flux.base.pipe_config import PipelineConfig
-from opencortex.neuroengine.flux.base.processor_group import ProcessorGroup
+from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
+from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
 from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
-from opencortex.neuroengine.flux.simple_nodes import LogNode
+from opencortex.neuroengine.flux.base.simple_nodes import LogNode
 from opencortex.neuroengine.models.classifier import Classifier
-from opencortex.neuroengine.flux.stream_node import StreamOutLSL
+from opencortex.neuroengine.flux.network.stream_lsl import StreamOutLSL
 from opencortex.neuroengine.network.lsl_stream import (
     start_lsl_eeg_stream, start_lsl_power_bands_stream,
     start_lsl_inference_stream, start_lsl_quality_stream,
@@ -136,7 +136,7 @@ class CortexEngine:
             )
         ]
 
-        self.pipeline = ProcessorGroup(
+        self.pipeline = PipelineGroup(
             pipelines=configs,
             name="CortexEnginePipeline",
             max_workers=2,

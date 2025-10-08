@@ -7,10 +7,10 @@ import threading
 from typing import Any, Dict, Callable, Optional, List
 from concurrent.futures import ThreadPoolExecutor, Future
 from opencortex.neuroengine.flux.base.node import Node
-from opencortex.neuroengine.flux.base.pipe_config import PipelineConfig
+from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
 
 
-class ProcessorGroup(Node):
+class PipelineGroup(Node):
     """
     A node that runs multiple pipelines in parallel threads.
     Each pipeline receives the same input data but different configurations.
@@ -31,7 +31,7 @@ class ProcessorGroup(Node):
             max_workers: Maximum number of threads (None = number of pipelines)
             wait_for_all: If True, waits for all pipelines to complete before returning
         """
-        super().__init__(name or "ProcessorGroup")
+        super().__init__(name or "PipelineGroup")
         self.pipelines = pipelines
         self.max_workers = max_workers or len(pipelines)
         self.wait_for_all = wait_for_all
