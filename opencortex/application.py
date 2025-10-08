@@ -11,7 +11,7 @@ import opencortex
 from opencortex.gui.gui_adapter import GUIAdapter
 from opencortex.gui.setup_dialog import SetupDialog, retrieve_board_id, retrieve_eeg_devices
 from opencortex.gui.streamer_gui import StreamerGUI
-from opencortex.neuroengine.core.cortex_engine import CortexEngine, HeadlessCortexEngine
+from opencortex.neuroengine.cortex_engine import CortexEngine, HeadlessCortexEngine
 
 import importlib.resources as pkg_resources
 

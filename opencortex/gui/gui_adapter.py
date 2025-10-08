@@ -4,7 +4,7 @@ GUI Adapter - Connects StreamEngine service to PyQt GUI
 
 import logging
 from PyQt5 import QtCore, QtWidgets
-from opencortex.neuroengine.core.cortex_engine import CortexEngine, StreamData
+from opencortex.neuroengine.cortex_engine import CortexEngine, StreamData
 from typing import Dict, Any
 
 

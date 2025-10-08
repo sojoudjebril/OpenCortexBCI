@@ -2,7 +2,7 @@ import logging
 
 from PyQt5 import QtWidgets
 
-from opencortex.neuroengine.core.cortex_engine import CortexEngine
+from opencortex.neuroengine.cortex_engine import CortexEngine
 from opencortex.gui.gui_adapter import GUIAdapter
 
 
