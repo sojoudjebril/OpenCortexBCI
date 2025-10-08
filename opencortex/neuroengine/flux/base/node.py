@@ -35,16 +35,15 @@ class Node(ABC):
     
 class RawNode(Node):
     """
-    A Node that processes MNE RawArray objects.
+    A Node that processes MNE RawArray objects. It takes only one RawArray as input and returns a RawArray.
     """
 
-    @abstractmethod
-    def __call__(self, raw: RawArray, *args, **kwargs) -> RawArray:
+    def __call__(self, raw: RawArray) -> RawArray:
         """
         Processes an MNE RawArray and returns a modified RawArray.
         """
         pass
-    
-    
+
+
 
 
