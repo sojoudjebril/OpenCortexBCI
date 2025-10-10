@@ -17,7 +17,7 @@ class BandPowerExtractor(Node):
         self.fs = fs
         self.ch_names = ch_names
         self.freq_bands = freq_bands
-        self.average = False
+        self.average = average
 
     def __call__(self, data):
         return extract_band_powers(data=data, fs=self.fs, bands=self.freq_bands, average=self.average)

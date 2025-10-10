@@ -248,6 +248,7 @@ class CortexEngine:
             self.filtered_eeg[-1] = trigger
 
             # Process through pipeline
+            # TODO convert to MNE RawArray
             _ = self.pipeline(self.filtered_eeg[0:len(self.eeg_channels)])
 
 

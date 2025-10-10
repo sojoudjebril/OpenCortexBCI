@@ -3,8 +3,8 @@ Nodes for extracting features/labels and scaling EEG data
 """
 import numpy as np
 import logging
-from typing import Optional, Dict, Tuple, Literal
-from sklearn.preprocessing import LabelEncoder
+from typing import Optional, Dict, Tuple, Literal, Union, List
+from mne import Epochs
 from opencortex.neuroengine.flux.base.node import Node
 
 
@@ -15,15 +15,21 @@ class ExtractNode(Node):
     Optionally applies label encoding.
     """
 
-    def __init__(self, label_encoder, apply_label_encoding: bool = True, label_mapping: Optional[Dict[int, int]] = None,
+    def __init__(self,
+                 label_encoder,
+                 apply_label_encoding: bool = True,
+                 label_mapping: Optional[Dict[int, int]] = None,
+                 picks: Union[str, List[str]] = 'eeg',
                  name: str = None):
         """
         Initialize the ExtractXyNode.
 
         Args:
+            label_encoder: An instance of sklearn's LabelEncoder.
             apply_label_encoding: If True, apply sklearn LabelEncoder to labels.
             label_mapping: Optional dictionary to map original labels to new values
                           before encoding. Example: {1: 0, 3: 1} maps targets to 0, non-targets to 1.
+            picks: Channels to include ('eeg', 'all', or list of channel names).
             name: Optional name for this node.
         """
         super().__init__(name or "ExtractXy")
@@ -31,26 +37,26 @@ class ExtractNode(Node):
         self.label_mapping = label_mapping
         self.label_encoder = label_encoder if apply_label_encoding else None
         self.is_fitted = False
+        self.picks = picks
 
     def __call__(
             self,
-            data: Tuple[np.ndarray, np.ndarray]
+            epochs_data: Epochs
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Extract and potentially encode X and y.
 
         Args:
-            data: Tuple of (epochs_data, labels)
-                 - epochs_data: shape (n_epochs, n_channels, n_times)
-                 - labels: shape (n_epochs,)
+            epochs_data: mne.Epochs object containing epoched data and events.
 
         Returns:
             Tuple of (X, y)
             - X: shape (n_epochs, n_channels, n_times)
             - y: shape (n_epochs,) - potentially encoded
         """
-        X, y = data
 
+        X = epochs_data.get_data(picks=self.picks)
+        y = epochs_data.events[:, -1]
         logging.info(f"Extracting X and y: X shape={X.shape}, y shape={y.shape}")
 
         # Apply label mapping if specified

@@ -48,6 +48,9 @@ class StreamOutLSL(Node):
         Args:
             data: Data to be streamed (format depends on stream type)
         """
+        # TODO make into a RawNode
+
+
         if self.stream_type == 'eeg':
             self.push_function(self.outlet, data, 0, len(data)-1, 0)
         else:   
