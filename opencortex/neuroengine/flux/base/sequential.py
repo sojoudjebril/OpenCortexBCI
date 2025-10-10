@@ -14,6 +14,10 @@ class Sequential(Node):
     def __init__(self, *steps: Node, name: str = None):
         super().__init__(name or "Sequential")
         self.steps = steps
+        
+    @classmethod
+    def from_steps(cls, steps: list, name: str = None) -> 'Sequential':
+        return cls(*steps, name=name)
 
     def __call__(self, data: Any) -> Any:
         for step in self.steps:
@@ -22,6 +26,13 @@ class Sequential(Node):
 
     def __repr__(self) -> str:
         return "Sequential({})".format(self.steps)
+    
+    def get_config(self) -> dict:
+        return {
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}.from_steps",
+            "name": self.name,
+            "steps": [step.get_config() for step in self.steps]
+        }
 
     def get_node(self, node_name: str) -> Any:
         for node in self.steps:

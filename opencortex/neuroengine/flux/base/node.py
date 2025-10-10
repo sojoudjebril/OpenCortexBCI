@@ -7,8 +7,6 @@ Copyright 2025 Michele Romani
 
 from abc import ABC, abstractmethod
 from typing import Any
-
-import numpy as np
 from mne.io import RawArray
 
 class Node(ABC):
@@ -26,6 +24,17 @@ class Node(ABC):
         Executes the node's computation.
         """
         pass
+
+    @abstractmethod
+    def get_config(self) -> dict:
+        """
+        Export the node's configuration for Hydra instantiation.
+        Override in subclasses to include custom parameters.
+        """
+        return {
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__name__}",
+            "name": self.name
+        }
 
     def __str__(self):
         return f"{self.__class__.__name__}(name={self.name})"
@@ -46,6 +55,12 @@ class MNENode(Node):
         Processes an MNE RawArray and returns a modified RawArray.
         """
         return data
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        # Add any RawNode-specific configuration here
+        return config
+
 
 
 

@@ -26,22 +26,19 @@ if __name__ == "__main__":
     configs = [
         PipelineConfig(
             pipeline=pipeline1,
-            config={"param1": "value1"},
             callback=pipeline1_callback,
             name="Pipeline_A"
         ),
         PipelineConfig(
             pipeline=pipeline2,
-            config={"param2": "value2"},
             callback=pipeline2_callback,
             name="Pipeline_B"
         ),
         PipelineConfig(
             pipeline=pipeline3,
-            config={"param3": "value3"},
             callback=pipeline3_callback,
             name="Pipeline_C"
-        ),
+        )
     ]
 
     # Create and execute the processor group
