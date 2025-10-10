@@ -7,6 +7,8 @@ Copyright 2025 Michele Romani
 
 from abc import ABC, abstractmethod
 from typing import Any
+
+import numpy as np
 from mne.io import RawArray
 
 class Node(ABC):
@@ -33,17 +35,17 @@ class Node(ABC):
     
     
     
-class RawNode(Node):
+class MNENode(Node):
     """
     A Node that processes MNE RawArray objects. It takes only one RawArray as input and returns a RawArray.
     """
 
-    def __call__(self, raw: RawArray) -> RawArray:
+    @abstractmethod
+    def __call__(self, data: RawArray) -> RawArray:
         """
         Processes an MNE RawArray and returns a modified RawArray.
         """
-        pass
-
+        return data
 
 
 

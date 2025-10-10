@@ -3,10 +3,10 @@ BandPass Filter signal processing
 """
 from typing import Union, List, Tuple
 from mne.io import RawArray
-from opencortex.neuroengine.flux.base.node import Node
+from opencortex.neuroengine.flux.base.node import MNENode
 import logging
 
-class BandPassFilterNode(Node):
+class BandPassFilterNode(MNENode):
     """
     A node that applies band-pass filtering to retain frequencies
     within a specific range.
@@ -57,6 +57,9 @@ class BandPassFilterNode(Node):
         Returns:
             Filtered MNE RawArray object
         """
+        if not isinstance(data, RawArray):
+            raise TypeError("Input data must be an instance of mne.io.RawArray")
+
         filtered = data.copy().filter(
             l_freq=self.l_freq,
             h_freq=self.h_freq,
