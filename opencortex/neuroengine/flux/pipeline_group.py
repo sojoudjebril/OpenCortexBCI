@@ -10,9 +10,9 @@ from opencortex.neuroengine.flux.base.node import Node
 from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
 
 
-class PipelineGroup(Node):
+class PipelineGroup:
     """
-    A node that runs multiple pipelines in parallel threads.
+    Manages and executes multiple pipelines in parallel threads.
     Each pipeline receives the same input data and processes it independently according to its own configuration.
     """
 
@@ -30,7 +30,7 @@ class PipelineGroup(Node):
             max_workers: Maximum number of threads (None = number of pipelines)
             wait_for_all: If True, waits for all pipelines to complete before returning the results dictionary. If False, returns immediately and results are handled via callbacks.
         """
-        super().__init__(name or "PipelineGroup")
+        self.name = name or "PipelineGroup"
         self.pipelines = pipelines
         self.max_workers = max_workers or len(pipelines)
         self.wait_for_all = wait_for_all

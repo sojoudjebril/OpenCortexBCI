@@ -46,6 +46,17 @@ class BandPassFilterNode(Node):
         if l_freq - l_trans_bandwidth < 0:
             logging.warning(f"l_trans_bandwidth must be less than h_freq, setting it to l_freq:{self.l_freq}Hz")
             self.l_trans_bandwidth = l_freq
+            
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "l_freq": self.l_freq,
+            "h_freq": self.h_freq,
+            "filter_length": self.filter_length,
+            "l_trans_bandwidth": self.l_trans_bandwidth,
+            "h_trans_bandwidth": self.h_trans_bandwidth
+        })
+        return config
 
     def __call__(self, data: RawArray) -> RawArray:
         """

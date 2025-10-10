@@ -25,12 +25,16 @@ class Node(ABC):
         """
         pass
     
-    # @abstractmethod
-    # def to_config(self) -> dict:
-    #     """
-    #     Export the node's configuration as a dictionary.
-    #     """
-    #     return {'name': self.name, 'type': self.__class__.__name__}
+    @abstractmethod
+    def get_config(self) -> dict:
+        """
+        Export the node's configuration for Hydra instantiation.
+        Override in subclasses to include custom parameters.
+        """
+        return {
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__name__}",
+            "name": self.name
+        }
 
     def __str__(self):
         return f"{self.__class__.__name__}(name={self.name})"
@@ -51,8 +55,8 @@ class RawNode(Node):
         """
         pass
     
-    def to_config(self) -> dict:
-        config = super().to_config()
+    def get_config(self) -> dict:
+        config = super().get_config()
         # Add any RawNode-specific configuration here
         return config
 
