@@ -110,6 +110,12 @@ class PipelineGroup:
                 pass
 
         return self._results.copy()
+    
+    
+    def get_configs(self) -> List[Dict[str, Any]]:
+        """Get configurations of all pipelines."""
+        with self._pipeline_lock:
+            return [pc.get_config() for pc in self.pipelines]
 
     def get_results(self) -> Dict[str, Any]:
         """Get current results (useful for non-blocking mode)."""

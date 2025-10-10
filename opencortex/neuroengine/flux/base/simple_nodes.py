@@ -33,9 +33,17 @@ class AddNode(Node):
 
 
 class LogNode(Node):
-    def get_config(self) -> dict:
-        return super().get_config()
+    def __init__(self, name: str = "LogNode", verbose=False):
+        super().__init__(name)
+        self.verbose = verbose
     
+    
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({"verbose": self.verbose})
+        return config
+
     def __call__(self, data):
-        print(f"[LogNode] Data: {data}, shape: {getattr(data, 'shape', 'N/A')}, type: {type(data)}")
+        if self.verbose:
+            print(f"[LogNode] Data: {data}, shape: {getattr(data, 'shape', 'N/A')}, type: {type(data)}")
         return data

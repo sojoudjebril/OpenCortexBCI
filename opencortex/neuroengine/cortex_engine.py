@@ -1,21 +1,29 @@
 """
 CortexEngine - Main application controller and independent service
-Runs as the primary loop, with optional GUI interface running on a separate thread.
-Can also run headless for server deployments.
 
-Author: Michele Romani
+Authors: Michele Romani, Gregorio Andrea Giudici
 """
 
+from asyncore import dispatcher
+import json
 import os
+from pathlib import Path
+import socket
+import socket
 import threading
 import time
+import uuid
 import numpy as np
 import logging
 import queue
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable
 from concurrent.futures import ThreadPoolExecutor
 from brainflow.board_shim import BoardShim, BoardIds
+import portalocker  # For safe file locking
+
+from pythonosc import osc_server
+from pythonosc.dispatcher import Dispatcher
 
 import opencortex.neuroengine.flux.base.operators  # Needed to enable >> and + operators
 from opencortex.neuroengine.flux.base.parallel import Parallel
@@ -60,6 +68,9 @@ class CortexEngine:
     Main application controller that runs independently.
     Can operate headless or with GUI attached.
     """
+    
+    DEFAULT_PORT = 8080
+    INSTANCE_REGISTRY_FILE = "cortex_engine_registry.json"
 
     def __init__(self, board, config, window_size=1):
         self.board = board
@@ -67,10 +78,34 @@ class CortexEngine:
         self.window_size = window_size
 
         self.pid = os.getpid()
-        logging.info(f"Starting CortexEngine with PID {self.pid}")
+        self.hostname = socket.gethostname()
+        self.uuid = f"{self.hostname}_{self.pid}_{str(uuid.uuid4())[:4]}"
+        self.instance_id = self.uuid
+        self.assigned_port = None
+        self.board_id = self.board.get_board_id()
+        logging.info(f"Starting CortexEngine with PID {self.uuid} and board {self.board_id}")
+
+        self.instances_file = Path(self.INSTANCE_REGISTRY_FILE)
+
+        # Register instance for discovery
+        self._register_instance()
+        
+        
+        # Create a osc server on assigned port
+        dispatcher = Dispatcher()
+        dispatcher.map("/filter", print)
+        # Create a server listening on the assigned port for OSC messages from everywhere
+        self.osc_server = osc_server.ThreadingOSCUDPServer(
+            ("0.0.0.0", self.assigned_port), dispatcher)
+        logging.info(f"OSC server listening on port {self.assigned_port}")
+        self.osc_thread = threading.Thread(
+            target=self.osc_server.serve_forever,
+            daemon=True  # Ensures thread won't block shutdown
+        )
+        self.osc_thread.start()
+
 
         # Core properties
-        self.board_id = self.board.get_board_id()
         self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
         try:
             self.eeg_names = BoardShim.get_eeg_names(self.board_id)
@@ -104,34 +139,42 @@ class CortexEngine:
         self.over_sample = config.get('oversample', True)
         self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
 
-        lsl_pipeline = StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate,
-                                    source_id=self.board.get_device_name(self.board_id)) \
-                       >> LogNode(name="EEG") \
-                       >> BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
-                       >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
-                                       fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        # lsl_pipeline = StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate,
+        #                             source_id=self.board.get_device_name(self.board_id)) \
+        #                >> LogNode(name="EEG") \
+        #                >> BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+        #                >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
+        #                                fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        
         # TODO uniform IN and OUT of nodes, add error checking and/or handling
         # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
-        signal_quality_pipeline = Sequential(
-            NotchFilterNode((50, 60), name='NotchFilter'),
-            BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
-            StreamOutLSL(stream_type='eeg', name='FilteredEEGLSL', channels=self.eeg_names, fs=self.sampling_rate,
-                         source_id=board.get_device_name(self.board_id)),
-            QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
-            StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names, fs=self.sampling_rate,
-                         source_id=board.get_device_name(self.board_id)),
-            name='SignalQualityPipeline'
-        )
+        # signal_quality_pipeline = Sequential(
+        #     NotchFilterNode((50, 60), name='NotchFilter'),
+        #     BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
+        #     StreamOutLSL(stream_type='eeg', name='FilteredEEGLSL', channels=self.eeg_names, fs=self.sampling_rate,
+        #                  source_id=board.get_device_name(self.board_id)),
+        #     QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
+        #     StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names, fs=self.sampling_rate,
+        #                  source_id=board.get_device_name(self.board_id)),
+        #     name='SignalQualityPipeline'
+        # )
 
+        # configs = [
+        #     PipelineConfig(
+        #         pipeline=lsl_pipeline,
+        #         name="StreamerPipeline"
+        #     ),
+        #     PipelineConfig(
+        #         pipeline=signal_quality_pipeline,
+        #         name="QualityPipeline"
+        #     )
+        # ]
+        
         configs = [
             PipelineConfig(
-                pipeline=lsl_pipeline,
-                name="StreamerPipeline"
-            ),
-            PipelineConfig(
-                pipeline=signal_quality_pipeline,
-                name="QualityPipeline"
+                pipeline=Sequential(LogNode("Start") + LogNode("Middle") + LogNode("End"), name="SimplePipeline"),
+                name="SimplePipeline"
             )
         ]
 
@@ -141,6 +184,7 @@ class CortexEngine:
             max_workers=2,
             wait_for_all=False
         )
+        
 
         # Data buffers
         self.filtered_eeg = np.zeros((len(self.eeg_channels) + 1, self.num_points))
@@ -196,6 +240,17 @@ class CortexEngine:
         # Remove all callbacks
         self.data_callbacks.clear()
         self.event_callbacks.clear()
+        
+        # Stop OSC server
+        if self.osc_server:
+            self.osc_server.shutdown()
+            self.osc_server.server_close()
+            logging.info("OSC server stopped")
+        
+        # Unregister instance
+        self._unregister_instance()
+        
+        self._cleanup_stale_instances(self._load_instances())
 
         if self.main_thread:
             self.main_thread.join(timeout=5.0)
@@ -254,6 +309,135 @@ class CortexEngine:
         except Exception as e:
             logging.error(f"Error updating data: {e}")
             raise
+
+
+    # ===================== INSTANCE REGISTRATION =====================
+    def _is_port_available(self, port: int) -> bool:
+        """Check if a port is available for both TCP and UDP."""
+        # Check TCP
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('', port))
+        except OSError:
+            return False
+        
+        # Check UDP (OSC uses UDP)
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.bind(('', port))
+        except OSError:
+            return False
+        
+        return True
+    
+    def _load_instances(self) -> Dict[str, Dict]:
+        """Load existing instances from file."""
+        if not self.instances_file.exists():
+            return {}
+        
+        try:
+            with open(self.instances_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    
+    def _save_instances(self, instances: Dict[str, Dict]) -> None:
+        """Save instances to file."""
+        with open(self.instances_file, 'w') as f:
+            json.dump(instances, f, indent=2)
+    
+    def _cleanup_stale_instances(self, instances: Dict[str, Dict]) -> Dict[str, Dict]:
+        """Remove instances that no longer have their ports in use."""
+        cleaned = {}
+        for inst_id, data in instances.items():
+            port = data.get('port')
+            if port and not self._is_port_available(port):
+                # Port is in use, keep the instance
+                cleaned[inst_id] = data
+        return cleaned
+    
+    def _find_next_available_port(self, start_port: int, used_ports: list[int]) -> int:
+        """Find the next available port starting from start_port."""
+        port = start_port
+        max_attempts = 100
+        
+        for _ in range(max_attempts):
+            if port not in used_ports and self._is_port_available(port):
+                return port
+            port += 1
+        
+        raise RuntimeError(f"Could not find available port after {max_attempts} attempts")
+    
+    def _register_instance(self, preferred_port: Optional[int] = None) -> int:
+        """
+        Register this engine instance and get an assigned port.
+        
+        Args:
+            preferred_port: Desired port number. If None, uses DEFAULT_PORT.
+                          If port is taken, finds next available.
+        
+        Returns:
+            The assigned port number.
+        """
+        # Acquire exclusive lock on the instances file
+        lock_file = self.instances_file.with_suffix('.lock')
+        
+        with portalocker.Lock(lock_file, mode='a', timeout=10) as _:
+            # Load and cleanup existing instances
+            instances = self._load_instances()
+            instances = self._cleanup_stale_instances(instances)
+            
+            # Determine which ports are in use
+            used_ports = [data['port'] for data in instances.values()]
+            
+            # Determine the port to use
+            start_port = preferred_port if preferred_port is not None else self.DEFAULT_PORT
+            
+            if start_port in used_ports or not self._is_port_available(start_port):
+                # Find next available port
+                self.assigned_port = self._find_next_available_port(start_port, used_ports)
+            else:
+                self.assigned_port = start_port
+            
+            # Register this instance
+            instances[self.instance_id] = {
+                'port': self.assigned_port,
+                'pid': os.getpid()
+            }
+            
+            # Save updated instances
+            self._save_instances(instances)
+            
+        # Log the instances that are currently registered
+        logging.info(f"Registered CortexEngine instance {self.instance_id} on port {self.assigned_port}")
+        logging.info(f"Current instances: {instances}")
+        
+        return self.assigned_port
+    
+    def _unregister_instance(self) -> None:
+        """Unregister this instance when shutting down."""
+        if not self.assigned_port:
+            return
+        
+        lock_file = self.instances_file.with_suffix('.lock')
+        
+        try:
+            with portalocker.Lock(lock_file, mode='a', timeout=10) as _:
+                instances = self._load_instances()
+                
+                if self.instance_id in instances:
+                    del instances[self.instance_id]
+                    self._save_instances(instances)
+        except Exception as e:
+            print(f"Warning: Could not unregister instance: {e}")
+    
+    def get_all_instances(self) -> Dict[str, Dict]:
+        """Get all registered instances (after cleanup)."""
+        lock_file = self.instances_file.with_suffix('.lock')
+        
+        with portalocker.Lock(lock_file, mode='a', timeout=10) as _:
+            instances = self._load_instances()
+            return self._cleanup_stale_instances(instances)
 
 
     # ===================== COMMAND PROCESSING =====================

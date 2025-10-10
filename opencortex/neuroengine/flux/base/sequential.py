@@ -16,8 +16,19 @@ class Sequential(Node):
         self.steps = steps
         
     @classmethod
-    def from_steps(cls, steps: list, name: str = None) -> 'Sequential':
-        return cls(*steps, name=name)
+    def hydra_inst(cls, steps: list, name: str = None) -> 'Sequential':
+        """
+        Factory method for Hydra to instantiate a Sequential node with steps.
+
+        Args:
+            steps: A list of Node instances
+            name: Optional name for the node
+
+        Returns:
+            Sequential instance
+        """
+        return cls(*steps, name=name or "Sequential")
+
 
     def __call__(self, data: Any) -> Any:
         for step in self.steps:
@@ -29,7 +40,7 @@ class Sequential(Node):
     
     def get_config(self) -> dict:
         return {
-            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}.from_steps",
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}.hydra_inst",
             "name": self.name,
             "steps": [step.get_config() for step in self.steps]
         }

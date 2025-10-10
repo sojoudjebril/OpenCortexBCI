@@ -15,6 +15,21 @@ class Parallel(Node):
     def __init__(self, **branches: Node):
         super().__init__("Parallel")
         self.branches = branches
+        
+    @classmethod
+    def hydra_inst(cls, branches: dict, name: str = None) -> "Parallel":
+        """
+        Factory method for Hydra to instantiate a Parallel node with named branches.
+
+        Args:
+            branches: A dictionary of {name: Node} pairs
+            name: Optional name for the node
+
+        Returns:
+            Parallel instance
+        """
+        obj = cls(**branches, name=name or "Parallel")
+        return obj      
 
     def __call__(self, data: Any) -> Dict[str, Any]:
         return {name: branch(data) for name, branch in self.branches.items()}
@@ -27,23 +42,7 @@ class Parallel(Node):
 
     def get_config(self) -> dict:
         return {
-            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}.from_branches",
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}.hydra_inst",
             "name": self.name,
             "branches": {name: branch.get_config() for name, branch in self.branches.items()}
         }
-
-    @classmethod
-    def from_branches(cls, branches: dict, name: str = None) -> "Parallel":
-        """
-        Factory method for Hydra to instantiate a Parallel node with named branches.
-
-        Args:
-            branches: A dictionary of {name: Node} pairs
-            name: Optional name for the node
-
-        Returns:
-            Parallel instance
-        """
-        obj = cls(**branches)
-        obj.name = name or "Parallel"
-        return obj
