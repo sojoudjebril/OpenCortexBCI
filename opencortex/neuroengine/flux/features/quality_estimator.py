@@ -1,4 +1,5 @@
 import numpy as np
+from mne.io import RawArray
 from opencortex.neuroengine.flux.base.node import Node
 
 
@@ -15,6 +16,8 @@ class QualityEstimator(Node):
 
     def __call__(self, data):
         # `data` is (channels, samples)
+        if isinstance(data, RawArray):
+            data = data.get_data(picks='eeg')
         return [self._estimate_quality(ch_data) for ch_data in data]
 
     def _estimate_quality(self, eeg, threshold=75):

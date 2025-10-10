@@ -34,6 +34,7 @@ from opencortex.neuroengine.network.lsl_stream import (
     push_lsl_raw_eeg, push_lsl_inference, push_lsl_quality
 )
 from opencortex.utils.layouts import layouts
+from opencortex.utils.loader import convert_to_mne
 
 
 @dataclass
@@ -79,11 +80,6 @@ class CortexEngine:
             self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.num_points = self.window_size * self.sampling_rate
-        try:
-            self.eeg_names = BoardShim.get_eeg_names(self.board_id)
-        except Exception as e:
-            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
-            self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"],
 
         # Engine state
         self.running = False
@@ -106,7 +102,6 @@ class CortexEngine:
 
         lsl_pipeline = StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate,
                                     source_id=self.board.get_device_name(self.board_id)) \
-                       >> LogNode(name="EEG") \
                        >> BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
                        >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
                                        fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
@@ -114,10 +109,10 @@ class CortexEngine:
         # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
         signal_quality_pipeline = Sequential(
+            StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names + ["Trigger"], fs=self.sampling_rate,
+                         source_id=self.board.get_device_name(self.board_id)),
             NotchFilterNode((50, 60), name='NotchFilter'),
             BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
-            StreamOutLSL(stream_type='eeg', name='FilteredEEGLSL', channels=self.eeg_names, fs=self.sampling_rate,
-                         source_id=board.get_device_name(self.board_id)),
             QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
             StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names, fs=self.sampling_rate,
                          source_id=board.get_device_name(self.board_id)),
@@ -126,12 +121,8 @@ class CortexEngine:
 
         configs = [
             PipelineConfig(
-                pipeline=lsl_pipeline,
-                name="StreamerPipeline"
-            ),
-            PipelineConfig(
                 pipeline=signal_quality_pipeline,
-                name="QualityPipeline"
+                name="SignalQuality"
             )
         ]
 
@@ -141,7 +132,7 @@ class CortexEngine:
             max_workers=2,
             wait_for_all=False
         )
-
+        logging.getLogger().setLevel(logging.INFO)
         # Data buffers
         self.filtered_eeg = np.zeros((len(self.eeg_channels) + 1, self.num_points))
         self.raw_data = None
@@ -220,7 +211,6 @@ class CortexEngine:
                     last_update = current_time
                 except Exception as e:
                     logging.error(f"Error in main loop: {e}")
-                    self._notify_event('error', {'message': str(e)})
 
             # Small sleep to prevent 100% CPU usage
             time.sleep(0.001)  # TODO: check if needed (NOTE: on Greg's PC this reduces CPU load from ~20% to ~8%)
@@ -247,15 +237,16 @@ class CortexEngine:
             ts = data[ts_channel]
             self.filtered_eeg[-1] = trigger
 
+            raw = self.filtered_eeg[0:len(self.eeg_channels)].T
             # Process through pipeline
             # TODO convert to MNE RawArray
-            _ = self.pipeline(self.filtered_eeg[0:len(self.eeg_channels)])
+            raw = convert_to_mne(eeg.T, trigger, fs=self.sampling_rate, chs=self.eeg_names, recompute=False)
+            _ = self.pipeline(raw)
 
 
         except Exception as e:
             logging.error(f"Error updating data: {e}")
             raise
-
 
     # ===================== COMMAND PROCESSING =====================
 

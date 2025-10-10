@@ -1,6 +1,7 @@
 """
 Notch Filter signal processing
 """
+import logging
 from typing import Union, List, Tuple
 from mne.io import RawArray
 from opencortex.neuroengine.flux.base.node import MNENode
@@ -54,6 +55,7 @@ class NotchFilterNode(MNENode):
         """
 
         if not isinstance(data, RawArray):
+            logging.error(f"{self.name}: Data must be of type RawArray, got {type(data)}")
             raise TypeError("Input data must be an instance of mne.io.RawArray")
 
         filtered = data.copy().notch_filter(

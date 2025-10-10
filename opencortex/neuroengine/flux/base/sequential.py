@@ -20,9 +20,12 @@ class Sequential(Node):
         return cls(*steps, name=name)
 
     def __call__(self, data: Any) -> Any:
-        for step in self.steps:
-            data = step(data)
-        return data
+        try:
+            for step in self.steps:
+                data = step(data)
+            return data
+        except Exception as e:
+            raise RuntimeError(f"Error in Sequential node '{self.name}': {e}") from e
 
     def __repr__(self) -> str:
         return "Sequential({})".format(self.steps)
