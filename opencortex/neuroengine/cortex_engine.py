@@ -85,7 +85,7 @@ class CortexEngine:
         self.board_id = self.board.get_board_id()
         logging.info(f"Starting CortexEngine with PID {self.uuid} and board {self.board_id}")
 
-        self.instances_file = Path(self.INSTANCE_REGISTRY_FILE)
+        self.instances_file = Path(__file__).parent / self.INSTANCE_REGISTRY_FILE
 
         # Register instance for discovery
         self._register_instance()
@@ -401,8 +401,11 @@ class CortexEngine:
             
             # Register this instance
             instances[self.instance_id] = {
+                'hostname': self.hostname,
                 'port': self.assigned_port,
-                'pid': os.getpid()
+                'pid': os.getpid(),
+                'board_id': self.board_id,
+                'timestamp': time.time()
             }
             
             # Save updated instances
