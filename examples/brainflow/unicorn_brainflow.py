@@ -24,7 +24,7 @@ def retrieve_unicorn_devices():
         # Append devices whose name matches the UN-XXXX.XX.XX pattern
         if re.search(r'UN-\d{4}.\d{2}.\d{2}', device.name()):
             # Append tuple (address, name, device class)
-            discovered_devices.append((device.address().toString(), device.name(), device.deviceClass()))
+            discovered_devices.append((device.address().toString(), device.name(), device.ServiceClass()))
 
     def finished():
         loop.quit()
@@ -49,7 +49,8 @@ def main():
     unicorn_devices = retrieve_unicorn_devices()
     print(unicorn_devices)
     if unicorn_devices:
-        params.serial_number = unicorn_devices[0][1]
+        params.serial_number = unicorn_devices[2][1]
+        print(f"Using Unicorn device: {params.serial_number}")
     else:
         print("No Unicorn devices found.")
         return

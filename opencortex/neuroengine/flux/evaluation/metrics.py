@@ -9,6 +9,7 @@ import logging
 from typing import Optional, Callable, Tuple, Dict
 from opencortex.neuroengine.flux.base.node import Node
 
+
 class MetricNode(Node):
     """
     Computes metrics on predictions.
@@ -63,6 +64,16 @@ class MetricNode(Node):
 
         logging.info(f"Computed metrics: {results}")
         return results
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}.from_scorers",
+            "scorers": {name: scorer.__name__ for name, scorer in self.scorers.items()},
+            "custom_scorers": {name: scorer.__name__ for name, scorer in self.custom_scorers.items()},
+            "name": self.name,
+        })
+        return config
 
     def __str__(self):
         n_scorers = len(self.scorers) + len(self.custom_scorers)

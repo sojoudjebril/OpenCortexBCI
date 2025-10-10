@@ -92,6 +92,18 @@ class ExtractEventsNode(Node):
 
         return data, self.events, self.events_dict, self.colors_dict
 
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "stim_channel": self.stim_channel,
+            "ev_ids": self.ev_ids,
+            "event_color": self.event_color,
+            "auto_label": self.auto_label,
+            "initial_event": self.initial_event,
+            "shortest_event": self.shortest_event
+        })
+        return config
+
     def __str__(self):
         n_events = len(self.events) if self.events is not None else 0
         return f"{self.__class__.__name__}(stim={self.stim_channel}, n_events={n_events}, name={self.name})"
@@ -169,6 +181,16 @@ class FilterEventsNode(Node):
 
         return raw_data, filtered, event_ids, event_colors
 
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "max_event_id": self.max_event_id,
+            "min_event_id": self.min_event_id,
+            "keep_event_ids": self.keep_event_ids,
+            "drop_event_ids": self.drop_event_ids
+        })
+        return config
+
     def __str__(self):
         filters = []
         if self.max_event_id: filters.append(f"max={self.max_event_id}")
@@ -233,6 +255,15 @@ class RelabelEventsNode(Node):
         logging.debug(f"Relabeled events to: {np.unique(relabeled[:, 2])}")
 
         return raw_data, relabeled, event_ids, event_colors
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "event_mapping": self.event_mapping,
+            "target_class": self.target_class,
+            "nontarget_label": self.nontarget_label
+        })
+        return config
 
     def __str__(self):
         return f"{self.__class__.__name__}(target={self.target_class}, name={self.name})"

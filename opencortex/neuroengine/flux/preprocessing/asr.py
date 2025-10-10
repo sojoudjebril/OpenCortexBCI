@@ -6,10 +6,10 @@ import logging
 from typing import Optional, Tuple
 from mne.io import RawArray
 from meegkit.asr import ASR as MeegkitASR
-from opencortex.neuroengine.flux.base.node import Node
+from opencortex.neuroengine.flux.base.node import MNENode
 
 
-class ASRNode(Node):
+class ASRNode(MNENode):
     """
     A node that applies Artifact Subspace Reconstruction (ASR) to remove
     high-amplitude artifacts from EEG data.
@@ -72,6 +72,10 @@ class ASRNode(Node):
         Returns:
             Cleaned MNE RawArray object
         """
+
+        if not isinstance(data, RawArray):
+            raise TypeError("Input data must be an instance of mne.io.RawArray")
+
         # Extract sampling frequency if not provided
         sfreq = self.sfreq if self.sfreq is not None else data.info['sfreq']
 
@@ -121,6 +125,21 @@ class ASRNode(Node):
                           data.ch_names.index(data.ch_names[0]) + len(eeg_data)] = cleaned_data
 
         return cleaned_raw
+
+
+    def get_config(self) -> dict:
+        return {
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "sfreq": self.sfreq,
+            "cutoff": self.cutoff,
+            "block_size": self.block_size,
+            "win_len": self.win_len,
+            "win_overlap": self.win_overlap,
+            "max_dimension": self.max_dimension,
+            "calibration_time": self.calibration_time,
+            "calibrate": self.calibrate,
+            "name": self.name
+        }
 
     def __str__(self):
         status = "fitted" if self.is_fitted else "not fitted"

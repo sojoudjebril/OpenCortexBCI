@@ -3,14 +3,15 @@ Notch Filter signal processing
 """
 from typing import Union, List, Tuple
 from mne.io import RawArray
-from opencortex.neuroengine.flux.base.node import Node
+from opencortex.neuroengine.flux.base.node import MNENode
 
 
-class NotchFilterNode(Node):
+class NotchFilterNode(MNENode):
     """
     A node that applies notch filtering to remove powerline noise.
     Typically used to remove 50 Hz or 60 Hz interference.
     """
+
 
     def __init__(
             self,
@@ -51,12 +52,26 @@ class NotchFilterNode(Node):
         Returns:
             Filtered MNE RawArray object
         """
+
+        if not isinstance(data, RawArray):
+            raise TypeError("Input data must be an instance of mne.io.RawArray")
+
         filtered = data.copy().notch_filter(
             freqs=self.freqs,
             filter_length=self.filter_length,
             trans_bandwidth=self.trans_bandwidth
         )
         return filtered
+
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "freqs": self.freqs,
+            "filter_length": self.filter_length,
+            "trans_bandwidth": self.trans_bandwidth
+        })
+        return config
 
     def __str__(self):
         freqs_str = ', '.join(f"{f}Hz" for f in self.freqs)

@@ -10,7 +10,9 @@ import onnxruntime as ort
 from typing import Optional, Callable, Tuple, Any, Dict, Union
 from opencortex.neuroengine.flux.base.node import Node
 from pathlib import Path
-#TODO check scikit2onnx
+
+
+# TODO check scikit2onnx
 class ONNXNode(Node):
     """
     ONNX inference only.
@@ -58,7 +60,6 @@ class ONNXNode(Node):
         if predictions.ndim > 1:
             predictions = predictions.argmax(axis=1)
 
-
         return predictions
 
     def _extract_data(self, loader: Any) -> np.ndarray:
@@ -72,6 +73,15 @@ class ONNXNode(Node):
 
         X = torch.cat(X_list, dim=0).numpy()
         return X
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "model_path": str(self.model_path),
+            "name": self.name
+        })
+        return config
 
     def __str__(self):
         return f"{self.__class__.__name__}(path={self.model_path.name})"

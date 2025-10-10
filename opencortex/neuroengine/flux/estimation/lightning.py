@@ -148,6 +148,17 @@ class LightningNode(Node):
         self.mode = state.get('mode', 'train')
         self.is_trained = state.get('is_trained', False)
 
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "mode": self.mode,
+            "trainer_config": self.trainer_config,
+            "checkpoint_path": str(self.checkpoint_path) if self.checkpoint_path else None,
+            "name": self.name
+        })
+        return config
+
     def __str__(self):
         status = "trained" if self.is_trained else "untrained"
         return f"{self.__class__.__name__}(model={self.model.__class__.__name__}, mode={self.mode}, status={status})"

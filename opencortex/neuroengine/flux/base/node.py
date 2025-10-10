@@ -24,7 +24,7 @@ class Node(ABC):
         Executes the node's computation.
         """
         pass
-    
+
     @abstractmethod
     def get_config(self) -> dict:
         """
@@ -44,17 +44,19 @@ class Node(ABC):
     
     
     
-class RawNode(Node):
+class MNENode(Node):
     """
     A Node that processes MNE RawArray objects. It takes only one RawArray as input and returns a RawArray.
     """
 
-    def __call__(self, raw: RawArray) -> RawArray:
+    @abstractmethod
+    def __call__(self, data: RawArray) -> RawArray:
         """
         Processes an MNE RawArray and returns a modified RawArray.
         """
-        pass
-    
+        return data
+
+    @abstractmethod
     def get_config(self) -> dict:
         config = super().get_config()
         # Add any RawNode-specific configuration here

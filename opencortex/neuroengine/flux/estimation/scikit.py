@@ -10,6 +10,7 @@ import torch
 from typing import Optional, Callable, Tuple, Any, Dict, Union
 from opencortex.neuroengine.flux.base.node import Node
 
+
 class ScikitNode(Node):
     """
     Trains/evaluates scikit-learn compatible models.
@@ -83,6 +84,17 @@ class ScikitNode(Node):
         """Make predictions."""
         X, _ = self._extract_data(loader)
         return self.model.predict(X)
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "model": str(self.model),
+            "fit_params": self.fit_params,
+            "eval_func": self.eval_func.__name__ if self.eval_func else None,
+            "name": self.name
+        })
+        return config
 
     def __str__(self):
         return f"{self.__class__.__name__}(model={self.model.__class__.__name__})"

@@ -8,6 +8,7 @@ from opencortex.neuroengine.network.lsl_stream import (
     push_lsl_raw_eeg, push_lsl_band_powers, push_lsl_inference, push_lsl_quality
 )
 
+
 class StreamOutLSL(Node):
     """
     Node to stream data to LSL.
@@ -48,11 +49,20 @@ class StreamOutLSL(Node):
         Args:
             data: Data to be streamed (format depends on stream type)
         """
+        # TODO make into a RawNode
+
         if self.stream_type == 'eeg':
-            self.push_function(self.outlet, data, 0, len(data)-1, 0)
-        else:   
+            self.push_function(self.outlet, data, 0, len(data) - 1, 0)
+        else:
             self.push_function(self.outlet, data)
         return data  # Pass through the data unchanged
 
-
-
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "stream_type": self.stream_type,
+            "stream_params": self.stream_params,
+            "name": self.name
+        })
+        return config
