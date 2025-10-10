@@ -27,7 +27,6 @@ from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
 from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
 from opencortex.neuroengine.flux.base.simple_nodes import LogNode
-from opencortex.neuroengine.models.classifier import Classifier
 from opencortex.neuroengine.flux.network.stream_lsl import StreamOutLSL
 from opencortex.neuroengine.network.lsl_stream import (
     start_lsl_eeg_stream, start_lsl_power_bands_stream,
@@ -143,11 +142,6 @@ class CortexEngine:
             wait_for_all=False
         )
 
-        # self.pipeline = Parallel(
-        #     band_power=BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names),
-        #     quality=QualityEstimator(quality_thresholds=self.quality_thresholds)
-        # )
-
         # Data buffers
         self.filtered_eeg = np.zeros((len(self.eeg_channels) + 1, self.num_points))
         self.raw_data = None
@@ -163,37 +157,21 @@ class CortexEngine:
         self.event_callbacks = []
 
         # Timing calculations
-        self._calculate_timing_parameters()
-
-        # Initialize LSL outlets
-        # self._init_lsl_outlets()
+        # self._calculate_timing_parameters()
 
         logging.info("StreamEngine initialized")
 
-    def _calculate_timing_parameters(self):
-        """Calculate timing parameters for predictions and epochs."""
-        self.off_time = (self.flash_time * (self.nclasses - 1))
-        self.prediction_interval = int(2 * self.flash_time + self.off_time)
-        self.epoch_data_points = int(self.epoch_length_ms * self.sampling_rate / 1000)
-        self.inference_ms = self.baseline_ms + (self.flash_time * self.nclasses) + self.epoch_length_ms
-        self.prediction_datapoints = int(self.inference_ms * self.sampling_rate / 1000)
+    # def _calculate_timing_parameters(self):
+    #     """Calculate timing parameters for predictions and epochs."""
+    #     self.off_time = (self.flash_time * (self.nclasses - 1))
+    #     self.prediction_interval = int(2 * self.flash_time + self.off_time)
+    #     self.epoch_data_points = int(self.epoch_length_ms * self.sampling_rate / 1000)
+    #     self.inference_ms = self.baseline_ms + (self.flash_time * self.nclasses) + self.epoch_length_ms
+    #     self.prediction_datapoints = int(self.inference_ms * self.sampling_rate / 1000)
 
-        self.slicing_trigger = (self.epoch_length_ms + self.baseline_ms) // self.flash_time
-        if self.slicing_trigger > self.nclasses:
-            self.slicing_trigger = self.nclasses
-
-    # def _init_lsl_outlets(self):
-    #     """Initialize LSL output streams."""
-    #     device_name = self.board.get_device_name(self.board_id)
-
-    #     self.eeg_outlet = start_lsl_eeg_stream(
-    #         channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
-    #     self.inference_outlet = start_lsl_inference_stream(
-    #         channels=1, fs=self.sampling_rate, source_id=device_name)
-    #     self.band_powers_outlet = start_lsl_power_bands_stream(
-    #         channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
-    #     self.quality_outlet = start_lsl_quality_stream(
-    #         channels=self.eeg_names, fs=self.sampling_rate, source_id=device_name)
+    #     self.slicing_trigger = (self.epoch_length_ms + self.baseline_ms) // self.flash_time
+    #     if self.slicing_trigger > self.nclasses:
+    #         self.slicing_trigger = self.nclasses
 
     # ===================== MAIN ENGINE CONTROL =====================
 
@@ -204,10 +182,6 @@ class CortexEngine:
             return
 
         self.running = True
-
-        # Initialize classifier in background
-        if self.model is not None:
-            self.executor.submit(self._init_classifier)
 
         # Start main processing loop
         self.main_thread = threading.Thread(target=self._main_loop, daemon=True)
@@ -281,43 +255,6 @@ class CortexEngine:
             logging.error(f"Error updating data: {e}")
             raise
 
-    # ===================== INTERFACE MANAGEMENT =====================
-
-    def register_data_callback(self, callback: Callable[[StreamData], None]):
-        """Register a callback for data updates (GUI, API, etc.)"""
-        self.data_callbacks.append(callback)
-        logging.info(f"Registered data callback: {callback.__name__}")
-
-    def register_event_callback(self, callback: Callable[[str, Dict], None]):
-        """Register a callback for events (predictions, errors, etc.)"""
-        self.event_callbacks.append(callback)
-        logging.info(f"Registered event callback: {callback.__name__}")
-
-    def unregister_data_callback(self, callback):
-        """Unregister a data callback"""
-        if callback in self.data_callbacks:
-            self.data_callbacks.remove(callback)
-
-    def unregister_event_callback(self, callback):
-        """Unregister an event callback"""
-        if callback in self.event_callbacks:
-            self.event_callbacks.remove(callback)
-
-    def _notify_data_update(self, data: StreamData):
-        """Notify all interfaces of data update."""
-        for callback in self.data_callbacks:
-            try:
-                callback(data)
-            except Exception as e:
-                logging.error(f"Error in data callback {callback.__name__}: {e}")
-
-    def _notify_event(self, event_type: str, data: Dict[str, Any]):
-        """Notify all interfaces of an event."""
-        for callback in self.event_callbacks:
-            try:
-                callback(event_type, data)
-            except Exception as e:
-                logging.error(f"Error in event callback {callback.__name__}: {e}")
 
     # ===================== COMMAND PROCESSING =====================
 
@@ -367,105 +304,7 @@ class CortexEngine:
             if command.callback:
                 command.callback(False, str(e))
 
-    # ===================== CORE FUNCTIONALITY =====================
-
-    def _init_classifier(self):
-        """Initialize the classifier."""
-        try:
-            self.classifier = Classifier(model=self.model, board_id=self.board_id, ch_names=self.eeg_names)
-            self._notify_event('classifier_ready', {})
-            logging.info(f"Classifier {self.model} initialized")
-        except Exception as e:
-            logging.error(f"Error initializing classifier: {e}")
-            self._notify_event('error', {'message': f"Classifier init failed: {e}"})
-
-    def _set_inference_mode(self, mode=None):
-        """Set inference mode."""
-        if mode is None:
-            self.inference_mode = not self.inference_mode
-        else:
-            self.inference_mode = mode
-
-        if self.classifier:
-            self.classifier.set_inference_mode(self.inference_mode)
-
-        self._notify_event('inference_mode_changed', {'mode': self.inference_mode})
-        logging.info(f"Inference mode: {'ON' if self.inference_mode else 'OFF'}")
-
-    def _send_trigger(self, trigger=1, timestamp=0):
-        """Send a trigger."""
-        if timestamp == 0:
-            timestamp = time.time()
-
-        self.board.insert_marker(int(trigger))
-        self._notify_event('trigger_sent', {'trigger': trigger, 'timestamp': timestamp})
-
-        # Handle prediction triggers
-        if self.inference_mode:
-            if int(trigger) == self.slicing_trigger and not self.first_prediction:
-                self._predict_class()
-            elif int(trigger) == self.slicing_trigger and self.first_prediction:
-                logging.debug('Skipping first prediction')
-                self.first_prediction = False
-
-    def _train_classifier(self, data=None):
-        """Train the classifier."""
-        if self.classifier is None:
-            self._notify_event('error', {'message': 'Classifier not initialized'})
             return
-
-        # Train in background
-        self.executor.submit(self._train_classifier_async, data)
-
-    def _train_classifier_async(self, data):
-        """Train classifier asynchronously."""
-        try:
-            if data is None:
-                # Get training data from current buffer
-                data = self.raw_data
-
-            self.classifier.train(data, oversample=self.over_sample)
-            self._notify_event('training_complete', {})
-            logging.info("Training completed")
-        except Exception as e:
-            logging.error(f"Training error: {e}")
-            self._notify_event('error', {'message': f"Training failed: {e}"})
-
-    def _plot_cm_async(self):
-        """Plot confusion matrix asynchronously."""
-        try:
-            self.classifier.plot_confusion_matrix()
-            self._notify_event('cm_plotted', {})
-            logging.info("Confusion matrix plotted")
-        except Exception as e:
-            logging.error(f"Error plotting confusion matrix: {e}")
-            self._notify_event('error', {'message': f"CM plot failed: {e}"})
-
-    def _predict_class(self):
-        """Predict class."""
-        if self.classifier is None:
-            return
-
-        try:
-            inference_sample = self.board.get_current_board_data(self.prediction_datapoints)
-            self.executor.submit(self._predict_class_async, inference_sample)
-        except Exception as e:
-            logging.error(f"Prediction error: {e}")
-
-    def _predict_class_async(self, data):
-        """Predict class asynchronously."""
-        try:
-            output = self.classifier.predict(data, proba=self.proba, group=self.group_predictions)
-            push_lsl_inference(self.inference_outlet, output)
-            self._notify_event('prediction_ready', {'prediction': output})
-            logging.info(f"Predicted: {output}")
-        except Exception as e:
-            logging.error(f"Prediction error: {e}")
-
-    def _configure_filters(self, filter_config):
-        """Configure data filters."""
-        # This will be implemented when we move filter logic
-        pass
 
     # ===================== UTILITY METHODS =====================
 
