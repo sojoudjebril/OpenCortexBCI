@@ -7,9 +7,8 @@ from PyQt5 import QtWidgets
 
 
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
-import opencortex
-from opencortex.gui.gui_adapter import GUIAdapter
-from opencortex.gui.setup_dialog import SetupDialog, retrieve_board_id, retrieve_eeg_devices
+from opencortex.gui.toRemove_gui_adapter import GUIAdapter
+from opencortex.gui.toRemove_setup_dialog import SetupDialog, retrieve_board_id, retrieve_eeg_devices
 from opencortex.gui.streamer_gui import StreamerGUI
 from opencortex.neuroengine.cortex_engine import CortexEngine, HeadlessCortexEngine
 
@@ -112,16 +111,6 @@ def run_headless():
         engine = HeadlessCortexEngine(board_shim, config, args.window_size, args.log_file)
 
         # Add monitoring callbacks
-        def data_monitor(data):
-            logging.info(f"Data update: {len(data.quality_scores)} channels, "
-                         f"trigger: {data.trigger}, quality: {data.quality_scores}")
-
-        def event_monitor(event_type, event_data):
-            logging.info(f"Event: {event_type} - {event_data}")
-
-        engine.register_data_callback(data_monitor)
-        engine.register_event_callback(event_monitor)
-
         logging.info("Starting OpenCortex in headless mode...")
         logging.info(f"Board: {board_shim.get_device_name(args.board_id)}")
         logging.info(f"Sampling rate: {BoardShim.get_sampling_rate(args.board_id)} Hz")
