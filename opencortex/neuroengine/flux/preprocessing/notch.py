@@ -12,6 +12,7 @@ class NotchFilterNode(MNENode):
     Typically used to remove 50 Hz or 60 Hz interference.
     """
 
+
     def __init__(
             self,
             freqs: Union[float, List[float], Tuple[float, ...]] = (50, 60),
@@ -61,6 +62,16 @@ class NotchFilterNode(MNENode):
             trans_bandwidth=self.trans_bandwidth
         )
         return filtered
+
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "freqs": self.freqs,
+            "filter_length": self.filter_length,
+            "trans_bandwidth": self.trans_bandwidth
+        })
+        return config
 
     def __str__(self):
         freqs_str = ', '.join(f"{f}Hz" for f in self.freqs)

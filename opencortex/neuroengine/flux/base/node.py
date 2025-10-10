@@ -56,6 +56,7 @@ class MNENode(Node):
         """
         return data
 
+    @abstractmethod
     def get_config(self) -> dict:
         config = super().get_config()
         # Add any RawNode-specific configuration here

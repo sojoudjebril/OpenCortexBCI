@@ -12,9 +12,10 @@ class Parallel(Node):
     Returns a dictionary with each branch's output.
     """
 
-    def __init__(self, **branches: Node):
+    def __init__(self, name:str=None,**branches: Node):
         super().__init__("Parallel")
         self.branches = branches
+        self.name = name
 
     def __call__(self, data: Any) -> Dict[str, Any]:
         return {name: branch(data) for name, branch in self.branches.items()}

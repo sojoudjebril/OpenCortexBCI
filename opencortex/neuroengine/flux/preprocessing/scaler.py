@@ -151,6 +151,16 @@ class ScalerNode(Node):
             X_scaled = self.transform(X)
 
         return X_scaled, y
+    
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "scaler": self.scaler.__class__.__name__,
+            "per_channel": self.per_channel,
+            "is_fitted": self.is_fitted,
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__ }"
+        })
+        return config
 
     def __str__(self):
         status = "fitted" if self.is_fitted else "not fitted"

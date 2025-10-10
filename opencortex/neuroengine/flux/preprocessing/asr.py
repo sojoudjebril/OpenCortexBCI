@@ -126,6 +126,21 @@ class ASRNode(MNENode):
 
         return cleaned_raw
 
+
+    def get_config(self) -> dict:
+        return {
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "sfreq": self.sfreq,
+            "cutoff": self.cutoff,
+            "block_size": self.block_size,
+            "win_len": self.win_len,
+            "win_overlap": self.win_overlap,
+            "max_dimension": self.max_dimension,
+            "calibration_time": self.calibration_time,
+            "calibrate": self.calibrate,
+            "name": self.name
+        }
+
     def __str__(self):
         status = "fitted" if self.is_fitted else "not fitted"
         return (f"{self.__class__.__name__}"

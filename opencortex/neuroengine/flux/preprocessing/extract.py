@@ -99,6 +99,18 @@ class ExtractNode(Node):
             return y
         return self.label_encoder.inverse_transform(y)
 
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "apply_label_encoding": self.apply_label_encoding,
+            "label_mapping": self.label_mapping,
+            "is_fitted": self.is_fitted,
+            "picks": self.picks,
+            "label_encoder": self.label_encoder.__class__.__name__ if self.label_encoder else None
+        })
+        return config
+
     def __str__(self):
         status = "fitted" if self.is_fitted else "not fitted"
         return (f"{self.__class__.__name__}"

@@ -144,7 +144,6 @@ class EpochingNode(Node):
             f"{self.epochs_data.shape[2]} time points"
         )
 
-
         return self.epochs
 
     def _create_fixed_epochs(
@@ -154,7 +153,8 @@ class EpochingNode(Node):
     ) -> Epochs:
         """Create fixed-length epochs (with or without overlap)."""
         if not isinstance(data, BaseRaw):
-            raise ValueError("For fixed-length epochs, data must be a BaseRaw instance, if you are relabeling events just remove the node")
+            raise ValueError(
+                "For fixed-length epochs, data must be a BaseRaw instance, if you are relabeling events just remove the node")
 
         raw_data = data
 
@@ -221,6 +221,22 @@ class EpochingNode(Node):
             'baseline': self.baseline,
             'event_id': self.event_id
         }
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "mode": self.mode,
+            "tmin": self.tmin,
+            "tmax": self.tmax,
+            "duration": self.duration,
+            "overlap": self.overlap,
+            "baseline": self.baseline,
+            "event_id": self.event_id,
+            "picks": self.picks,
+            "preload": self.preload,
+            "reject": self.reject
+        })
+        return config
 
     def __str__(self):
         n_epochs = len(self.labels) if self.labels is not None else 0

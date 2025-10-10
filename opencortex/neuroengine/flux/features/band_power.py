@@ -36,10 +36,22 @@ class BandPowerExtractor(Node):
         """
         self.average = average
 
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+            "fs": self.fs,
+            "ch_names": self.ch_names,
+            "freq_bands": self.freq_bands,
+            "average": self.average,
+            "name": self.name
+        })
+        return config
+
+
 def convert_bandpowers_for_lsl(band_powers):
     """Stack all bands into single array"""
     band_order = ['delta', 'theta', 'alpha', 'beta', 'gamma']
-
 
     arrays_to_stack = []
     for band_name in band_order:

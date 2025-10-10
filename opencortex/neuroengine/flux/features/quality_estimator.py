@@ -23,3 +23,13 @@ class QualityEstimator(Node):
             if low <= amplitude <= high:
                 return score
         return 0  # default low quality
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+                "_target_": f"{self.__class__.__module__}.{self.__class__.__qualname__}",
+                "quality_thresholds": self.quality_thresholds,
+                "name": self.name
+            })
+
+        return config

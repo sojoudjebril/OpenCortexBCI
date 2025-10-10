@@ -104,5 +104,17 @@ class DatasetNode(Node):
             logging.info(f"Created dataloader: train={len(dataset)}")
             return train_loader, None
 
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({
+            "split_size": self.split_size,
+            "batch_size": self.batch_size,
+            "shuffle": self.shuffle,
+            "num_workers": self.num_workers,
+            "dataset_constructor": self.dataset_constructor.__name__ if self.dataset_constructor else None,
+            "dataloader_kwargs": self.dataloader_kwargs
+        })
+        return config
+
     def __str__(self):
         return f"{self.__class__.__name__}(split={self.split_size}, batch={self.batch_size})"
