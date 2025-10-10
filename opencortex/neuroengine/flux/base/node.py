@@ -24,6 +24,13 @@ class Node(ABC):
         Executes the node's computation.
         """
         pass
+    
+    # @abstractmethod
+    # def to_config(self) -> dict:
+    #     """
+    #     Export the node's configuration as a dictionary.
+    #     """
+    #     return {'name': self.name, 'type': self.__class__.__name__}
 
     def __str__(self):
         return f"{self.__class__.__name__}(name={self.name})"
@@ -43,6 +50,11 @@ class RawNode(Node):
         Processes an MNE RawArray and returns a modified RawArray.
         """
         pass
+    
+    def to_config(self) -> dict:
+        config = super().to_config()
+        # Add any RawNode-specific configuration here
+        return config
 
 
 

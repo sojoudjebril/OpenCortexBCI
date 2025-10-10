@@ -13,8 +13,7 @@ from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
 class PipelineGroup(Node):
     """
     A node that runs multiple pipelines in parallel threads.
-    Each pipeline receives the same input data but different configurations.
-    Results can be propagated via callbacks.
+    Each pipeline receives the same input data and processes it independently according to its own configuration.
     """
 
     def __init__(
@@ -27,9 +26,9 @@ class PipelineGroup(Node):
         """
         Args:
             pipelines: List of PipelineConfig objects
-            name: Name for this processor group
+            name: Name for this pipeline group
             max_workers: Maximum number of threads (None = number of pipelines)
-            wait_for_all: If True, waits for all pipelines to complete before returning
+            wait_for_all: If True, waits for all pipelines to complete before returning the results dictionary. If False, returns immediately and results are handled via callbacks.
         """
         super().__init__(name or "PipelineGroup")
         self.pipelines = pipelines
@@ -116,13 +115,20 @@ class PipelineGroup(Node):
         """Get current results (useful for non-blocking mode)."""
         with self._lock:
             return self._results.copy()
+
+    def get_pipeline(self, pipeline_name: str) -> PipelineConfig | None:
+        """Get a pipeline configuration by name."""
+        with self._pipeline_lock:
+            for pc in self.pipelines:
+                if pc.name == pipeline_name:
+                    return pc
+            return None
         
-    
-    def get_pipelines(self) -> List[PipelineConfig]:
-        """Get the current list of pipeline configurations."""
+    def get_all_pipelines(self) -> List[PipelineConfig]:
+        """Get a list of all pipeline configurations."""
         with self._pipeline_lock:
             return list(self.pipelines)
-        
+
     def remove_pipeline(self, pipeline_name: str) -> bool:
         """Remove a pipeline configuration by name. Returns True if removed."""
         with self._pipeline_lock:
@@ -131,7 +137,6 @@ class PipelineGroup(Node):
                     del self.pipelines[i]
                     return True
         return False
-        
         
     def add_pipeline(self, pipeline_config: PipelineConfig):
         """Add a new pipeline configuration."""

@@ -31,3 +31,30 @@ class PipelineConfig:
         
     def __repr__(self):
         return f"PipelineConfig(name={self.name}, pipeline={self.pipeline}, config={self.config})"
+    
+    
+    def _create_config(self) -> Dict[str, Any]:
+        """Parse all nodes in the pipeline to create a configuration dictionary. Useful for saving/loading and exporting."""
+        # self.pipeline is a Node or Sequential
+        config = {}
+        for node in self.pipeline:
+            if hasattr(node, 'get_config'):
+                config[node.name] = node.get_config()
+        return config
+    
+        
+    def _from_config_to_yaml(self) -> str:
+        """Export the pipeline configuration to a YAML string."""
+        import yaml
+        config_dict = {
+            'name': self.name,
+            'pipeline': self.pipeline.name,
+            'config': self._create_config()
+        }
+        return yaml.dump(config_dict)
+    
+    
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> 'PipelineConfig':
+        """Create a PipelineConfig from a configuration dictionary."""
+        pass
