@@ -1,0 +1,9 @@
+name: pipeline1
+nodes:
+  - _target_: opencortex.neuroengine.flux.base.simple_nodes.AddNode
+    name: add_node
+    value: 10
+
+  - _target_: opencortex.neuroengine.flux.base.simple_nodes.AddNode
+    name: add_node_2
+    value: 5
