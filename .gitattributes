@@ -1,0 +1,9 @@
+# ignore non .py files
+* linguist-vendored
+# ignore test files
+tests/* linguist-vendored
+# ignore config files
+config/* linguist-vendored
+# ignore documentation files
+docs/* linguist-vendored
+.py linguist-language=Python

@@ -42,6 +42,8 @@ class NotchFilterNode(MNENode):
 
         self.filter_length = filter_length
         self.trans_bandwidth = trans_bandwidth
+        logging.info(f"{self.name}: Applying notch filter at {self.freqs} Hz")
+
 
     def __call__(self, data: RawArray) -> RawArray:
         """

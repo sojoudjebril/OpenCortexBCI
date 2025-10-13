@@ -27,7 +27,7 @@ from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
 from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
 from opencortex.neuroengine.flux.base.simple_nodes import LogNode
-from opencortex.neuroengine.flux.network.stream_lsl import StreamOutLSL
+from opencortex.neuroengine.flux.network.lsl import StreamOutLSL
 from opencortex.neuroengine.network.lsl_stream import (
     start_lsl_eeg_stream, start_lsl_power_bands_stream,
     start_lsl_inference_stream, start_lsl_quality_stream,
@@ -66,9 +66,12 @@ class CortexEngine:
         self.board = board
         self.config = config
         self.window_size = window_size
+        log = logging.getLogger()
+        log.setLevel(logging.DEBUG)
+
 
         self.pid = os.getpid()
-        logging.info(f"Starting CortexEngine with PID {self.pid}")
+        log.info(f"Starting CortexEngine with PID {self.pid}")
 
         # Core properties
         self.board_id = self.board.get_board_id()
@@ -76,7 +79,7 @@ class CortexEngine:
         try:
             self.eeg_names = BoardShim.get_eeg_names(self.board_id)
         except Exception as e:
-            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
+            log.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
             self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.num_points = self.window_size * self.sampling_rate
@@ -109,12 +112,12 @@ class CortexEngine:
         # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
         signal_quality_pipeline = Sequential(
-            StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names + ["Trigger"], fs=self.sampling_rate,
+            StreamOutLSL(stream_type="eeg", name="CortexEEG", logger=log, channels=self.eeg_names + ["Trigger"], fs=self.sampling_rate,
                          source_id=self.board.get_device_name(self.board_id)),
             NotchFilterNode((50, 60), name='NotchFilter'),
             BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
             QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
-            StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names, fs=self.sampling_rate,
+            StreamOutLSL(stream_type='quality', name='QualityLSL', logger=log, channels=self.eeg_names, fs=self.sampling_rate,
                          source_id=board.get_device_name(self.board_id)),
             name='SignalQualityPipeline'
         )
@@ -132,7 +135,6 @@ class CortexEngine:
             max_workers=2,
             wait_for_all=False
         )
-        logging.getLogger().setLevel(logging.INFO)
         # Data buffers
         self.filtered_eeg = np.zeros((len(self.eeg_channels) + 1, self.num_points))
         self.raw_data = None
@@ -328,7 +330,7 @@ class HeadlessCortexEngine(CortexEngine):
         if log_file:
             logging.basicConfig(
                 filename=log_file,
-                level=logging.INFO,
+                level=logging.DEBUG,
                 format='%(asctime)s - %(levelname)s - %(message)s'
             )
 

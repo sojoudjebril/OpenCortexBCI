@@ -21,7 +21,7 @@ class StreamOutLSL(MNENode, Node):
     Supports multiple data types: raw EEG, band powers, inference results, quality metrics.
     """
 
-    def __init__(self, stream_type: str, name: str = None, picks:Union[str, List[str]] = None, **stream_params):
+    def __init__(self, stream_type: str, name: str = None, logger=None, picks:Union[str, List[str]] = None, **stream_params):
         """
         Args:
             stream_type: Type of data to stream ('eeg', 'band_powers', 'inference', 'quality')
@@ -33,6 +33,7 @@ class StreamOutLSL(MNENode, Node):
         self.stream_type = stream_type
         self.picks = picks
         self.stream_params = stream_params
+        self.log = logger
 
         # Initialize the appropriate LSL stream based on type
         if self.stream_type == 'eeg':
@@ -61,17 +62,19 @@ class StreamOutLSL(MNENode, Node):
         if not isinstance(data, (np.ndarray, RawArray, dict, list)):
             raise ValueError("Data must be: a numpy array, an MNE RawArray, a dict, or a list")
 
+
         if isinstance(data, RawArray):
             send_data = data.get_data(picks=self.picks)
-            logging.log(5, f"Streaming RawArray data with shape {send_data.shape} to LSL as {self.stream_type}")
         else:
-            send_data = data
-            logging.log(5, f"Streaming data of type {type(send_data)} to LSL as {self.stream_type}")
+            send_data = np.array(data)
 
-        if self.stream_type == 'eeg':
-            self.push_function(self.outlet, send_data, 0, len(send_data) - 1, 0)
-        else:
+        try:
+            self.log.debug(f"{self.name}: Pushing data of shape {send_data.shape} to LSL stream '{self.stream_type}'")
             self.push_function(self.outlet, send_data)
+        except Exception as e:
+            self.log.error(f"{self.name}: Error pushing data to LSL stream: {e}")
+            raise e
+
         return data  # Pass through the data unchanged
 
 

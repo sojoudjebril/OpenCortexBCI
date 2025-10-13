@@ -214,7 +214,34 @@ def _prepare_data_for_push(data, timestamps):
     return data_list, timestamps_list
 
 
-def push_lsl_raw_eeg(outlet: StreamOutlet, data, start_eeg, end_eeg, counter, timestamps=None):
+def push_lsl_raw_eeg(outlet: StreamOutlet, data):
+    """
+    Push a chunk of EEG data to the LSL stream
+
+    :param outlet: StreamOutlet object
+    :param data: numpy array of shape (n_channels, n_samples)
+    :param start_eeg: int, start index of the EEG channels
+    :param end_eeg: int, end index of the EEG channels
+    :param counter: int, chunk counter
+    :param timestamps: numpy array of timestamps for each sample, or None
+    """
+    try:
+        # Transpose to (n_samples, n_channels) for LSL
+        samples = data.T
+        data_list, timestamps_list = _prepare_data_for_push(samples, None)
+
+        # Push with or without timestamps
+        if timestamps_list is None:
+            outlet.push_chunk(data_list)
+        else:
+            outlet.push_chunk(data_list, timestamps_list)
+
+        logging.debug(f"Pushed chunk ({len(data_list)} samples) to LSL stream {outlet.get_info().name()}")
+    except Exception as e:
+        logging.error(f"Error pushing EEG chunk to LSL: {e}")
+
+
+def push_lsl_raw_eeg_old(outlet: StreamOutlet, data, start_eeg, end_eeg, counter, timestamps=None):
     """
     Push a chunk of EEG data to the LSL stream
     
@@ -322,5 +349,5 @@ def push_lsl_inference(outlet: StreamOutlet, prediction, timestamp=None):
 
 def push_lsl_quality(outlet: StreamOutlet, quality, timestamp=None):
     """Push quality indicators to the LSL stream"""
-    print(f"Pushed quality {quality} to LSL stream {outlet.get_info().name()}")
+    #print(f"Pushed quality {quality} to LSL stream {outlet.get_info().name()} at {timestamp}")
     push_lsl_sample(outlet, quality, timestamp)
