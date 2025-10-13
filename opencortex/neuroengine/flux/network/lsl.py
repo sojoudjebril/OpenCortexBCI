@@ -65,11 +65,12 @@ class StreamOutLSL(MNENode, Node):
 
         if isinstance(data, RawArray):
             send_data = data.get_data(picks=self.picks)
+        elif isinstance(data, dict):
+            send_data = np.array([data[key] for key in sorted(data.keys())])
         else:
             send_data = np.array(data)
-
         try:
-            self.log.debug(f"{self.name}: Pushing data of shape {send_data.shape} to LSL stream '{self.stream_type}'")
+            self.log.info(f"{self.name}: Pushing data of shape {send_data.shape} to LSL stream '{self.stream_type}'")
             self.push_function(self.outlet, send_data)
         except Exception as e:
             self.log.error(f"{self.name}: Error pushing data to LSL stream: {e}")

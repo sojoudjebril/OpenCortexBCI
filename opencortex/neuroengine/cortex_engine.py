@@ -67,7 +67,7 @@ class CortexEngine:
         self.config = config
         self.window_size = window_size
         log = logging.getLogger()
-        log.setLevel(logging.DEBUG)
+        log.setLevel(logging.INFO)
 
 
         self.pid = os.getpid()
@@ -103,10 +103,8 @@ class CortexEngine:
         self.over_sample = config.get('oversample', True)
         self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
 
-        lsl_pipeline = StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names, fs=self.sampling_rate,
-                                    source_id=self.board.get_device_name(self.board_id)) \
-                       >> BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
-                       >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
+        lsl_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+                       >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', logger=log, channels=self.eeg_names,
                                        fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
         # TODO uniform IN and OUT of nodes, add error checking and/or handling
         # TODO specialize Node in RawNode and EpochNode (NumPy node?)
@@ -123,6 +121,10 @@ class CortexEngine:
         )
 
         configs = [
+            PipelineConfig(
+                pipeline=lsl_pipeline,
+                name="LSLStream"
+            ),
             PipelineConfig(
                 pipeline=signal_quality_pipeline,
                 name="SignalQuality"
@@ -241,7 +243,6 @@ class CortexEngine:
 
             raw = self.filtered_eeg[0:len(self.eeg_channels)].T
             # Process through pipeline
-            # TODO convert to MNE RawArray
             raw = convert_to_mne(eeg.T, trigger, fs=self.sampling_rate, chs=self.eeg_names, recompute=False)
             _ = self.pipeline(raw)
 
@@ -330,7 +331,7 @@ class HeadlessCortexEngine(CortexEngine):
         if log_file:
             logging.basicConfig(
                 filename=log_file,
-                level=logging.DEBUG,
+                level=logging.INFO,
                 format='%(asctime)s - %(levelname)s - %(message)s'
             )
 

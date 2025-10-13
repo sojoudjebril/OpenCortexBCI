@@ -305,8 +305,7 @@ def push_lsl_band_powers(outlet: StreamOutlet, band_powers, timestamps=None):
             outlet.push_chunk(data_list, timestamps_list)
         
         logging.debug(f"Pushed {len(data_list)} band power samples to LSL stream {outlet.get_info().name()}")
-        print(f"Pushed {len(data_list)} band power samples to LSL stream {outlet.get_info().name()}")
-        
+
     except Exception as e:
         logging.error(f"Error pushing band powers to LSL: {e}")
 
@@ -349,5 +348,4 @@ def push_lsl_inference(outlet: StreamOutlet, prediction, timestamp=None):
 
 def push_lsl_quality(outlet: StreamOutlet, quality, timestamp=None):
     """Push quality indicators to the LSL stream"""
-    #print(f"Pushed quality {quality} to LSL stream {outlet.get_info().name()} at {timestamp}")
     push_lsl_sample(outlet, quality, timestamp)

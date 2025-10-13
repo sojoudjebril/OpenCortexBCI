@@ -1,5 +1,5 @@
 import numpy as np
-
+from mne.io import RawArray
 from opencortex.neuroengine.flux.base.node import Node
 from opencortex.utils.processing.preprocessing import extract_band_powers_fast as extract_band_powers
 from opencortex.utils.processing.proc_helper import freq_bands
@@ -20,7 +20,13 @@ class BandPowerExtractor(Node):
         self.average = average
 
     def __call__(self, data):
-        return extract_band_powers(data=data, fs=self.fs, bands=self.freq_bands, average=self.average)
+        try:
+            if isinstance(data, RawArray):
+                data = data.get_data(picks='eeg')
+            return extract_band_powers(data=data, fs=self.fs, bands=self.freq_bands, average=self.average)
+        except Exception as e:
+            self.log.error(f"{self.name}: Error extracting band powers - {e}")
+            raise e
 
     def update_frequency_bands(self, freq_bands):
         """
