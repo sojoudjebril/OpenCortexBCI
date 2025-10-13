@@ -162,3 +162,7 @@ cython_debug/
 
 # Experiments
 export/
+
+
+# Cortex Engine instance registry
+cortex_engine_registry.*
