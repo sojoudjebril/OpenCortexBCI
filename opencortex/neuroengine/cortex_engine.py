@@ -35,13 +35,14 @@ from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
 from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
 from opencortex.neuroengine.flux.base.simple_nodes import LogNode
-from opencortex.neuroengine.flux.network.stream_lsl import StreamOutLSL
+from opencortex.neuroengine.flux.network.lsl import StreamOutLSL
 from opencortex.neuroengine.network.lsl_stream import (
     start_lsl_eeg_stream, start_lsl_power_bands_stream,
     start_lsl_inference_stream, start_lsl_quality_stream,
     push_lsl_raw_eeg, push_lsl_inference, push_lsl_quality
 )
 from opencortex.utils.layouts import layouts
+from opencortex.utils.loader import convert_to_mne
 
 
 @dataclass
@@ -76,6 +77,9 @@ class CortexEngine:
         self.board = board
         self.config = config
         self.window_size = window_size
+        log = logging.getLogger()
+        log.setLevel(logging.DEBUG)
+
 
         self.pid = os.getpid()
         self.hostname = socket.gethostname()
@@ -110,15 +114,10 @@ class CortexEngine:
         try:
             self.eeg_names = BoardShim.get_eeg_names(self.board_id)
         except Exception as e:
-            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
+            log.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
             self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.num_points = self.window_size * self.sampling_rate
-        try:
-            self.eeg_names = BoardShim.get_eeg_names(self.board_id)
-        except Exception as e:
-            logging.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
-            self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"],
 
         # Engine state
         self.running = False
@@ -275,7 +274,6 @@ class CortexEngine:
                     last_update = current_time
                 except Exception as e:
                     logging.error(f"Error in main loop: {e}")
-                    self._notify_event('error', {'message': str(e)})
 
             # Small sleep to prevent 100% CPU usage
             time.sleep(0.001)  # TODO: check if needed (NOTE: on Greg's PC this reduces CPU load from ~20% to ~8%)
@@ -302,9 +300,11 @@ class CortexEngine:
             ts = data[ts_channel]
             self.filtered_eeg[-1] = trigger
 
+            raw = self.filtered_eeg[0:len(self.eeg_channels)].T
             # Process through pipeline
             # TODO convert to MNE RawArray
-            _ = self.pipeline(self.filtered_eeg[0:len(self.eeg_channels)])
+            raw = convert_to_mne(eeg.T, trigger, fs=self.sampling_rate, chs=self.eeg_names, recompute=False)
+            _ = self.pipeline(raw)
 
 
         except Exception as e:
@@ -524,7 +524,7 @@ class HeadlessCortexEngine(CortexEngine):
         if log_file:
             logging.basicConfig(
                 filename=log_file,
-                level=logging.INFO,
+                level=logging.DEBUG,
                 format='%(asctime)s - %(levelname)s - %(message)s'
             )
 

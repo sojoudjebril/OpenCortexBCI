@@ -1,6 +1,7 @@
 """
 Notch Filter signal processing
 """
+import logging
 from typing import Union, List, Tuple
 from mne.io import RawArray
 from opencortex.neuroengine.flux.base.node import MNENode
@@ -41,6 +42,8 @@ class NotchFilterNode(MNENode):
 
         self.filter_length = filter_length
         self.trans_bandwidth = trans_bandwidth
+        logging.info(f"{self.name}: Applying notch filter at {self.freqs} Hz")
+
 
     def __call__(self, data: RawArray) -> RawArray:
         """
@@ -54,6 +57,7 @@ class NotchFilterNode(MNENode):
         """
 
         if not isinstance(data, RawArray):
+            logging.error(f"{self.name}: Data must be of type RawArray, got {type(data)}")
             raise TypeError("Input data must be an instance of mne.io.RawArray")
 
         filtered = data.copy().notch_filter(

@@ -3,6 +3,7 @@ Author: Michele Romani
 Email: michele.romani.zaltieri@gmail.com
 Copyright 2025 Michele Romani
 """
+import logging
 import threading
 from typing import Any, Dict, Callable, Optional, List
 from concurrent.futures import ThreadPoolExecutor, Future
@@ -90,24 +91,32 @@ class PipelineGroup:
             actual_pipelines = list(self.pipelines)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all pipeline executions
-            futures: Dict[Future, str] = {}
-            for pipeline_config in actual_pipelines:
-                future = executor.submit(
-                    self._execute_pipeline,
-                    pipeline_config,
-                    data
-                )
-                futures[future] = pipeline_config.name
+            try:
+                futures: Dict[Future, str] = {}
+                for pipeline_config in actual_pipelines:
+                    future = executor.submit(
+                        self._execute_pipeline,
+                        pipeline_config,
+                        data
+                    )
+                    futures[future] = pipeline_config.name
 
-            # Collect results
-            if self.wait_for_all:
-                for future in futures:
-                    pipeline_name, result = future.result()
-                    with self._lock:
-                        self._results[pipeline_name] = result
-            else:
-                # Return immediately, callbacks handle async results
-                pass
+                # Collect results
+                if self.wait_for_all:
+                    for future in futures:
+                        pipeline_name, result = future.result()
+                        with self._lock:
+                            self._results[pipeline_name] = result
+                else:
+                    # Return immediately, callbacks handle async results
+                    pass
+            except Exception as e:
+                # Handle exceptions during submission
+                logging.error(f"Error executing pipelines: {e}")
+                print(f"Error executing pipelines: {e}")
+                with self._lock:
+                    self._results["error"] = str(e)
+                return self._results.copy()
 
         return self._results.copy()
     
@@ -128,7 +137,7 @@ class PipelineGroup:
             for pc in self.pipelines:
                 if pc.name == pipeline_name:
                     return pc
-            return None
+            raise ValueError(f"Pipeline '{pipeline_name}' not found")
         
     def get_all_pipelines(self) -> List[PipelineConfig]:
         """Get a list of all pipeline configurations."""
