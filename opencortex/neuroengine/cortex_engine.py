@@ -30,6 +30,9 @@ from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.features.band_power import BandPowerExtractor
 from opencortex.neuroengine.flux.features.quality_estimator import QualityEstimator
+from opencortex.neuroengine.flux.network.sockets import WebSocketOutNode
+from opencortex.neuroengine.flux.network.websockets import WebSocketServer
+
 from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
 from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
@@ -138,32 +141,46 @@ class CortexEngine:
         self.over_sample = config.get('oversample', True)
         self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
 
-        lsl_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
-                       >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', logger=log, channels=self.eeg_names,
-                                       fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        # lsl_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+        #                >> StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', logger=log, channels=self.eeg_names,
+        #                                fs=self.sampling_rate, source_id=board.get_device_name(self.board_id))
+        
         # TODO uniform IN and OUT of nodes, add error checking and/or handling
         # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
-        signal_quality_pipeline = Sequential(
-            StreamOutLSL(stream_type="eeg", name="CortexEEG", logger=log, channels=self.eeg_names + ["Trigger"], fs=self.sampling_rate,
-                         source_id=self.board.get_device_name(self.board_id)),
-            NotchFilterNode((50, 60), name='NotchFilter'),
-            BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
-            QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
-            StreamOutLSL(stream_type='quality', name='QualityLSL', logger=log, channels=self.eeg_names, fs=self.sampling_rate,
-                         source_id=board.get_device_name(self.board_id)),
-            name='SignalQualityPipeline'
-        )
+        # signal_quality_pipeline = Sequential(
+        #     StreamOutLSL(stream_type="eeg", name="CortexEEG", logger=log, channels=self.eeg_names + ["Trigger"], fs=self.sampling_rate,
+        #                  source_id=self.board.get_device_name(self.board_id)),
+        #     NotchFilterNode((50, 60), name='NotchFilter'),
+        #     BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
+        #     QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
+        #     StreamOutLSL(stream_type='quality', name='QualityLSL', logger=log, channels=self.eeg_names, fs=self.sampling_rate,
+        #                  source_id=board.get_device_name(self.board_id)),
+        #     name='SignalQualityPipeline'
+        # )
+        
+        
+        websocket_pipeline = WebSocketServer(
+            name="WebSocketServer",
+            host="0.0.0.0",
+            port=8765,
+            channel_names=self.eeg_names + ["Trigger"],
+            logger=log
+        ) 
 
         configs = [
+            # PipelineConfig(
+            #     pipeline=lsl_pipeline,
+            #     name="LSLStream"
+            # ),
+            # PipelineConfig(
+            #     pipeline=signal_quality_pipeline,
+            #     name="SignalQuality"
+            # ),
             PipelineConfig(
-                pipeline=lsl_pipeline,
-                name="LSLStream"
-            ),
-            PipelineConfig(
-                pipeline=signal_quality_pipeline,
-                name="SignalQuality"
-            )
+                pipeline=websocket_pipeline,
+                name="WebSocketOut"
+                )
         ]
 
         self.pipeline = PipelineGroup(
