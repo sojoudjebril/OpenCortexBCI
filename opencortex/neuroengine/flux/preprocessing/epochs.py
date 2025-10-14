@@ -138,7 +138,7 @@ class EpochingNode(Node):
         self.epochs_data = self.epochs.get_data(picks=self.picks)
         self.labels = self.epochs.events[:, -1]
 
-        logging.info(
+        logging.debug(
             f"Created {self.epochs_data.shape[0]} event-based epochs with "
             f"{self.epochs_data.shape[1]} channels and "
             f"{self.epochs_data.shape[2]} time points"
@@ -167,14 +167,14 @@ class EpochingNode(Node):
             if step_size <= 0:
                 raise ValueError(f"Invalid overlap: step_size={step_size}s must be positive")
 
-            logging.info(
+            logging.debug(
                 f"Creating overlapping epochs: duration={self.duration}s, "
                 f"overlap={self.overlap}s, step={step_size}s"
             )
         else:
             # No overlap: step_size = duration
             step_size = self.duration
-            logging.info(f"Creating non-overlapping epochs: duration={self.duration}s")
+            logging.debug(f"Creating non-overlapping epochs: duration={self.duration}s")
 
         # Create fixed-length epochs using MNE
         self.epochs = make_fixed_length_epochs(
@@ -201,7 +201,7 @@ class EpochingNode(Node):
         if overlap:
             coverage = (n_epochs - 1) * step_size + self.duration
 
-        logging.info(
+        logging.debug(
             f"Created {n_epochs} fixed-length epochs with "
             f"{self.epochs_data.shape[1]} channels and "
             f"{self.epochs_data.shape[2]} time points "

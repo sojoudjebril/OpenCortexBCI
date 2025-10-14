@@ -26,7 +26,8 @@ class LightningNode(Node):
             train_func: Optional[Callable] = None,
             eval_func: Optional[Callable] = None,
             checkpoint_path: Optional[Union[str, Path]] = None,
-            name: str = None
+            name: str = None,
+            log: Optional[logging.Logger] = None
     ):
         """
         Args:
@@ -36,6 +37,8 @@ class LightningNode(Node):
             train_func: Custom training function (model, train_loader, val_loader) -> model
             eval_func: Custom eval function (model, val_loader) -> metrics
             checkpoint_path: Path to load checkpoint from
+            name: Optional name for this node
+            log: Optional logger
         """
         super().__init__(name or "Lightning")
         self.model = model
@@ -46,12 +49,13 @@ class LightningNode(Node):
         self.checkpoint_path = checkpoint_path
         self.trainer = None
         self.is_trained = False
+        self.log = log or logging.getLogger(__name__)
 
         # Load checkpoint if provided
         if checkpoint_path:
             self.model = model.__class__.load_from_checkpoint(checkpoint_path)
             self.is_trained = True
-            logging.info(f"Loaded checkpoint: {checkpoint_path}")
+            self.log.debug(f"Loaded checkpoint: {checkpoint_path}")
 
     def __call__(
             self,
@@ -66,7 +70,7 @@ class LightningNode(Node):
             - In 'inference' mode: (train_loader, val_loader) passed through
         """
 
-        #TODO why logger doesn't work?
+        #TODO why logger doesn't work? --> test new implementation
         if self.mode == 'train':
             train_loader, val_loader = data
             # Training mode
@@ -76,7 +80,7 @@ class LightningNode(Node):
             else:
                 # Default Lightning training
                 self.trainer = pl.Trainer(**self.trainer_config)
-                logging.info(self.trainer_config)
+                self.log.info(self.trainer_config)
                 self.trainer.fit(
                     self.model,
                     train_dataloaders=train_loader,
@@ -84,16 +88,16 @@ class LightningNode(Node):
                 )
 
             self.is_trained = True
-            logging.info("Training complete")
+            self.log.debug("Training complete")
 
             # Evaluate if provided
             if self.eval_func and val_loader:
                 metrics = self.eval_func(self.model, val_loader)
-                logging.info(f"Validation metrics: {metrics}")
+                self.log.debug(f"Validation metrics: {metrics}")
             return self.model
 
         elif self.mode == 'inference':
-            test_loader, _ = data
+            test_loader = data
             # Inference mode - just pass through
             if not self.is_trained:
                 logging.warning("Model not trained yet, predictions may be random")

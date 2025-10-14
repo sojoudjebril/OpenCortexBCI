@@ -6,6 +6,9 @@ Copyright 2025 Michele Romani
 import numpy as np
 import logging
 from typing import Optional, Callable, Tuple, Any
+
+from torch.utils.data import DataLoader
+
 from opencortex.neuroengine.flux.base.node import Node
 
 
@@ -44,7 +47,7 @@ class DatasetNode(Node):
     def __call__(
             self,
             data: Tuple[np.ndarray, np.ndarray]
-    ) -> Tuple[Any, Optional[Any]]:
+    ) -> Tuple[Any, Optional[Any]] | Any:
         """
         Args:
             data: (X, y) tuple
@@ -93,7 +96,7 @@ class DatasetNode(Node):
             return train_loader, val_loader
 
         else:
-            train_loader = DataLoader(
+            data_loader = DataLoader(
                 dataset,
                 batch_size=self.batch_size,
                 shuffle=self.shuffle,
@@ -102,7 +105,7 @@ class DatasetNode(Node):
             )
 
             logging.info(f"Created dataloader: train={len(dataset)}")
-            return train_loader, None
+            return data_loader
 
     def get_config(self) -> dict:
         config = super().get_config()

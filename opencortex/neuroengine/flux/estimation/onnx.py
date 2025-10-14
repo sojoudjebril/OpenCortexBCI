@@ -3,10 +3,10 @@ Author: Michele Romani
 Email: michele.romani.zaltieri@gmail.com
 Copyright 2025 Michele Romani
 """
-
+import torch
 import numpy as np
 import logging
-import onnxruntime as ort
+import threading
 from typing import Optional, Callable, Tuple, Any, Dict, Union
 from opencortex.neuroengine.flux.base.node import Node
 from pathlib import Path
@@ -21,6 +21,7 @@ class ONNXNode(Node):
     def __init__(
             self,
             model_path: Union[str, Path],
+            session = None,
             name: str = None
     ):
         """
@@ -30,9 +31,16 @@ class ONNXNode(Node):
         super().__init__(name or "ONNX")
         self.model_path = Path(model_path)
 
-        self.session = ort.InferenceSession(str(self.model_path))
-        self.input_name = self.session.get_inputs()[0].name
+        if session is not None:
+            self.session = session
+            logging.info("Using provided ONNX Runtime session.")
+        else:
+            if threading.current_thread() is not threading.main_thread():
+                raise RuntimeError("onnxruntime must be imported from the main thread")
+            import onnxruntime as ort
+            self.session = ort.InferenceSession(str(self.model_path))
 
+        self.input_name = self.session.get_inputs()[0].name
         logging.info(f"Loaded ONNX model: {self.model_path}")
 
     def __call__(self, data: Any) -> np.ndarray:
@@ -64,7 +72,6 @@ class ONNXNode(Node):
 
     def _extract_data(self, loader: Any) -> np.ndarray:
         """Extract data from dataloader."""
-        import torch
 
         X_list = []
         for batch in loader:
