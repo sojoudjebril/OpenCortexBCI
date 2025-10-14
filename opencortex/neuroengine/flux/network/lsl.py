@@ -33,7 +33,7 @@ class StreamOutLSL(MNENode, Node):
         self.stream_type = stream_type
         self.picks = picks
         self.stream_params = stream_params
-        self.log = logger
+        self.log = logger or logging.getLogger(__name__)
 
         # Initialize the appropriate LSL stream based on type
         if self.stream_type == 'eeg':
