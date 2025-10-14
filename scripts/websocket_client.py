@@ -38,13 +38,16 @@ async def receive_data(uri="ws://localhost:8765", verbose=False):
                         data_type = type(data).__name__
                         data_len = len(data) if hasattr(data, "__len__") else "N/A"
                         data_keys = list(data.keys()) if isinstance(data, dict) else []
+                        # Make the data_keys shorter as a unique string for display
+                        if data_keys:
+                            data_keys = ','.join(data_keys)[:30] + ('...' if len(data_keys) > 30 else '')
                     except json.JSONDecodeError:
                         data = message
                         data_type = "raw"
                         data_len = len(data)
 
                     # Inline printing
-                    line = f"\r[{current_time_str}] Δt={time_diff:.3f}s | Total={MESSAGE_COUNT}"
+                    line = f"\rData received at [{current_time_str}] Δt={time_diff:.3f}s | Total Messages={MESSAGE_COUNT}"
                     if verbose:
                         line += f" | Type={data_type}, Len={data_len}, Keys={data_keys}"
                     print(line, end="", flush=True)
