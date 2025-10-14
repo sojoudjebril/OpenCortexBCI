@@ -265,7 +265,7 @@ def run():
     if '--headless' in sys.argv:
         run_headless()
     else:
-        run_gui()
+        run_headless()
 
 class StreamerGUIService:
     """

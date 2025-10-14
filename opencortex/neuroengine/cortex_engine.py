@@ -29,6 +29,7 @@ from pythonosc.dispatcher import Dispatcher
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 import opencortex.neuroengine.flux.base.operators  # Needed to enable >> and + operators
+from opencortex.neuroengine.flux.base.aggregate import Aggregate
 from opencortex.neuroengine.flux.base.parallel import Parallel
 from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.estimation.lightning import LightningNode
@@ -199,10 +200,16 @@ class CortexEngine:
                         name='XyExtractor'),
             ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
             DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=4, name='TestDataset'),
-            ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference'),
+            Parallel(
+            model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference'),
+            model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference2'),
+            model_3=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference3'),
+            model_4=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference4'),
+            ),
+            Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
                 lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
-                                 channels=1,
+                                 channels=4,
                                  logger=log,
                                  fs=self.sampling_rate,
                                  source_id=board.get_device_name(self.board_id)),
@@ -237,7 +244,7 @@ class CortexEngine:
         self.pipeline = PipelineGroup(
             pipelines=configs,
             name="CortexEnginePipeline",
-            max_workers=2,
+            max_workers=4,
             wait_for_all=False
         )
 
