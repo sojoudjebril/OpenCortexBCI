@@ -5,8 +5,7 @@ import threading
 from typing import List, Set, Union
 from mne.io import RawArray
 import numpy as np
-from websockets import WebSocketServerProtocol
-from websockets.server import serve
+from websockets.legacy.server import WebSocketServerProtocol, serve
 
 from opencortex.neuroengine.flux.base.node import Node
 
@@ -16,19 +15,16 @@ class WebSocketServer(Node):
     Node that streams incoming data via WebSocket to connected clients.
     """
 
-    def __init__(self,
-                 name: str = "WebSocketNode",
-                 host: str = "0.0.0.0",
-                 port: int = 8765,
-                 channel_names: Union[List[str], None] = None,
-                 logger=None):
-        self.name = name
+    def __init__(self, name: str = "WebSocketNode", host: str = "0.0.0.0", port: int = 8765,
+                 channel_names: Union[List[str], None] = None, logger=None):
+        super().__init__(name)
         self.host = host
         self.port = port
         self.channel_names = channel_names
         self.log = logger 
         self.clients: Set[WebSocketServerProtocol] = set()
         self.server = None
+        self.logger = logger or logging.getLogger(__name__)
 
         # Store the main loop
         try:
@@ -47,16 +43,16 @@ class WebSocketServer(Node):
 
     async def _start_server(self):
         self.server = await serve(self._client_handler, self.host, self.port)
-        logging.info(f"WebSocketNode: Server started at ws://{self.host}:{self.port}")
+        self.logger.info(f"WebSocketNode: Server started at ws://{self.host}:{self.port}")
 
     async def _client_handler(self, websocket, path):
         self.clients.add(websocket)
-        logging.info(f"WebSocketNode: Client connected ({websocket.remote_address})")
+        self.logger.info(f"WebSocketNode: Client connected ({websocket.remote_address})")
         try:
             await websocket.wait_closed()
         finally:
             self.clients.remove(websocket)
-            logging.info(f"WebSocketNode: Client disconnected ({websocket.remote_address})")
+            self.logger.info(f"WebSocketNode: Client disconnected ({websocket.remote_address})")
 
     async def _send_to_clients(self, message: str):
         if not self.clients:
@@ -67,7 +63,7 @@ class WebSocketServer(Node):
             try:
                 await ws.send(message)
             except Exception as e:
-                logging.warning(f"WebSocketNode: Failed to send to client: {e}")
+                self.logger.warning(f"WebSocketNode: Failed to send to client: {e}")
                 disconnected.add(ws)
 
         self.clients -= disconnected
@@ -105,7 +101,7 @@ class WebSocketServer(Node):
         try:
             asyncio.run_coroutine_threadsafe(self._send_to_clients(payload), self.loop)
         except Exception as e:
-            logging.error(f"{self.name}: Error sending data via WebSocket: {e}")
+            self.logger.error(f"{self.name}: Error sending data via WebSocket: {e}")
 
         return data  # Passthrough
 
