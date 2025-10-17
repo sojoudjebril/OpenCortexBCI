@@ -101,7 +101,8 @@ class CortexEngine:
         self.board_id = self.board.get_board_id()
         logging.info(f"Starting CortexEngine with PID {self.uuid} and board {self.board_id}")
 
-        self.instances_file = Path(__file__).parent / self.INSTANCE_REGISTRY_FILE
+        # self.instances_file = Path(__file__).parent / self.INSTANCE_REGISTRY_FILE
+        self.instances_file = Path.cwd() / self.INSTANCE_REGISTRY_FILE
 
         # Register instance for discovery
         self._register_instance()
@@ -138,7 +139,7 @@ class CortexEngine:
         self.first_prediction = True
 
         # Configuration
-        # lsl_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+        # band_power_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
         #                >> Parallel(
         #     lsl=StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
         #                      fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
@@ -150,82 +151,82 @@ class CortexEngine:
         #         logger=log
         #     ))
         
-        lsl_pipeline = LogNode(name="LogRawData")
+        # # TODO uniform IN and OUT of nodes, add error checking and/or handling
+        # # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
-        # TODO uniform IN and OUT of nodes, add error checking and/or handling
-        # TODO specialize Node in RawNode and EpochNode (NumPy node?)
-
-        # signal_quality_pipeline = Sequential(
-        #     StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names + ["Trigger"],
-        #                  fs=self.sampling_rate,
-        #                  source_id=self.board.get_device_name(self.board_id)),
-        #     NotchFilterNode((50, 60), name='NotchFilter'),
-        #     BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
-        #     QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
-        #     Parallel(
-        #         lsl=StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names,
-        #                          fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
-        #         socket=WebSocketServer(
-        #             name="WebSocketServerQuality",
-        #             host="0.0.0.0",
-        #             port=8765,
-        #             channel_names=self.eeg_names,
-        #             logger=log
-        #         )),
-        #     name='SignalQualityPipeline'
-        # )
+        signal_quality_pipeline = Sequential(
+            StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names + ["Trigger"],
+                         fs=self.sampling_rate,
+                         source_id=self.board.get_device_name(self.board_id)),
+            NotchFilterNode((50, 60), name='NotchFilter'),
+            BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
+            QualityEstimator(quality_thresholds=config.get('quality_thresholds',
+                                             [(-100, -50, 'yellow', 0.5), (-50, 50, 'green', 1.0),
+                                              (50, 100, 'yellow', 0.5)]), name='QualityEstimator'),
+            Parallel(
+                lsl=StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names,
+                                 fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
+                socket=WebSocketServer(
+                    name="WebSocketServerQuality",
+                    host="0.0.0.0",
+                    port=8765,
+                    channel_names=self.eeg_names,
+                    logger=log
+                )),
+            name='SignalQualityPipeline'
+        )
 
         # self.onnx_session = ort.InferenceSession(str("model.onnx"))
 
-        classification_pipeline = Sequential(
-            NotchFilterNode((50, 60), name="PowerlineNotch"),
-            BandPassFilterNode(0.1, 30.0, name="ERPBand"),
-            EpochingNode(
-                mode='fixed_overlap',
-                duration=1.0,  # 2 second windows
-                overlap=.5,  # 1 second overlap (50%)
-                baseline=None,  # No baseline
-                name='OverlapEpochs'
-            ),
-            ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1},
-                        picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
-                        name='XyExtractor'),
-            ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
-            DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
-            Parallel(
-            model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference'),
-            model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference2'),
-            model_3=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference3'),
-            model_4=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference4'),
-            ),
-            Aggregate(mode="list", name="AggregatePredictions"),
-            Parallel(
-                lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
-                                 channels=["Arousal", "Valence", "Metal Load", "Calmness"],
-                                 logger=log,
-                                 fs=self.sampling_rate,
-                                 source_id=board.get_device_name(self.board_id)),
-                socket=WebSocketServer(
-                    name="WebSocketServerInference",
-                    host="0.0.0.0",
-                    port=8767,
-                    channel_names=[f'Class{i}' for i in range(4)],
-                    logger=log
-                )
-            ),
-            name="Inference",
+        # classification_pipeline = Sequential(
+        #     NotchFilterNode((50, 60), name="PowerlineNotch"),
+        #     BandPassFilterNode(0.1, 30.0, name="ERPBand"),
+        #     EpochingNode(
+        #         mode='fixed_overlap',
+        #         duration=1.0,  # 2 second windows
+        #         overlap=.5,  # 1 second overlap (50%)
+        #         baseline=None,  # No baseline
+        #         name='OverlapEpochs'
+        #     ),
+        #     ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1},
+        #                 picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
+        #                 name='XyExtractor'),
+        #     ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
+        #     DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
+        #     Parallel(
+        #     model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference'),
+        #     model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference2'),
+        #     model_3=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference3'),
+        #     model_4=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference4'),
+        #     ),
+        #     Aggregate(mode="list", name="AggregatePredictions"),
+        #     Parallel(
+        #         # lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
+        #         #                  channels=["Arousal", "Valence", "Metal Load", "Calmness"],
+        #         #                  logger=log,
+        #         #                  fs=self.sampling_rate,
+        #         #                  source_id=board.get_device_name(self.board_id)),
+        #         socket=WebSocketServer(
+        #             name="WebSocketServerInference",
+        #             host="0.0.0.0",
+        #             port=8767,
+        #             channel_names=[f"Class{i}" for i in range(4)],
+        #             logger=log
+        #         )
+        #     ),
+        #     name="Inference",
 
-        )
+        # )
 
         configs = [
-            PipelineConfig(
-                pipeline=powers_pipeline,
-                name="LSLStream"
-            ),
             # PipelineConfig(
-            #     pipeline=signal_quality_pipeline,
-            #     name="SignalQuality"
+            #     pipeline=band_power_pipeline,
+            #     name="LSLStream"
             # ),
+            PipelineConfig(
+                pipeline=signal_quality_pipeline,
+                name="SignalQuality"
+            ),
             # PipelineConfig(
             #     pipeline=classification_pipeline,
             #     name="Classifier"
@@ -237,7 +238,7 @@ class CortexEngine:
             pipelines=configs,
             name="CortexEnginePipeline",
             max_workers=16,
-            wait_for_all=False
+            wait_for_all=True
         )
 
         # Data buffers
