@@ -29,8 +29,8 @@ class GUIAdapter(QtCore.QObject):
         self.stream_engine = stream_engine
 
         # Register with StreamEngine
-        self.stream_engine.register_data_callback(self._on_data_update)
-        self.stream_engine.register_event_callback(self._on_event)
+        # self.stream_engine.register_data_callback(self._on_data_update)
+        # self.stream_engine.register_event_callback(self._on_event)
 
         logging.info("GUI Adapter initialized")
 
