@@ -35,9 +35,14 @@ class PipelineGroup:
         self.pipelines = pipelines
         self.max_workers = max_workers or len(pipelines)
         self.wait_for_all = wait_for_all
-        self._results: Dict[str, Any] = {}
+        # Executor
+        self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
+        self._shutdown = False
+        # Results storage and locks
+        self._results = {}        
         self._lock = threading.Lock()
-        # For safe pipeline addition/removal
+        # Cache pipeline list to avoid repeated lock acquisition
+        self._cached_pipelines = list(pipelines)
         self._pipeline_lock = threading.Lock()
         
     def __iter__(self):
@@ -75,50 +80,42 @@ class PipelineGroup:
                 pipeline_config.callback(pipeline_config.name, error_result)
             return pipeline_config.name, error_result
 
-    def __call__(self, data: Any) -> Dict[str, Any]:
-        """
-        Execute all pipelines in parallel threads.
+    def __call__(self, data):
+        """Execute all pipelines in parallel threads with optimized executor reuse."""
+        if self._shutdown:
+            raise RuntimeError("PipelineGroup has been shut down")
+        
+        # Use cached pipeline list if no modifications
+        pipelines_to_run = self._cached_pipelines
+        
+        # Submit all pipeline executions to reused executor
+        futures = {}
+        for pipeline_config in pipelines_to_run:
+            future = self.executor.submit(
+                self._execute_pipeline,
+                pipeline_config,
+                data
+            )
+            futures[future] = pipeline_config.name
 
-        Args:
-            data: Input data to be processed by all pipelines
-
-        Returns:
-            Dictionary mapping pipeline names to their results
-        """
-        self._results.clear()
-
-        with self._pipeline_lock:
-            actual_pipelines = list(self.pipelines)
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            # Submit all pipeline executions
-            try:
-                futures: Dict[Future, str] = {}
-                for pipeline_config in actual_pipelines:
-                    future = executor.submit(
-                        self._execute_pipeline,
-                        pipeline_config,
-                        data
-                    )
-                    futures[future] = pipeline_config.name
-
-                # Collect results
-                if self.wait_for_all:
-                    for future in futures:
-                        pipeline_name, result = future.result()
-                        with self._lock:
-                            self._results[pipeline_name] = result
-                else:
-                    # Return immediately, callbacks handle async results
-                    pass
-            except Exception as e:
-                # Handle exceptions during submission
-                logging.error(f"Error executing pipelines: {e}")
-                print(f"Error executing pipelines: {e}")
-                with self._lock:
-                    self._results["error"] = str(e)
-                return self._results.copy()
-
-        return self._results.copy()
+        # Collect results
+        if self.wait_for_all:
+            results = {}
+            for future in futures:
+                pipeline_name, result = future.result()
+                results[pipeline_name] = result
+            
+            with self._lock:
+                self._results = results
+            return results.copy()
+        
+        return {}
+    
+    def shutdown(self):
+        """Shut down the executor and clean up resources."""
+        self._shutdown = True
+        self.executor.shutdown(wait=True)
+        logging.info(f"PipelineGroup '{self.name}' has been shut down.")
     
     
     def get_configs(self) -> List[Dict[str, Any]]:
@@ -144,12 +141,13 @@ class PipelineGroup:
         with self._pipeline_lock:
             return list(self.pipelines)
 
-    def remove_pipeline(self, pipeline_name: str) -> bool:
-        """Remove a pipeline configuration by name. Returns True if removed."""
+    def remove_pipeline(self, pipeline_name):
+        """Remove a pipeline configuration by name."""
         with self._pipeline_lock:
             for i, pc in enumerate(self.pipelines):
                 if pc.name == pipeline_name:
                     del self.pipelines[i]
+                    self._cached_pipelines = list(self.pipelines)
                     return True
         return False
         
@@ -158,4 +156,4 @@ class PipelineGroup:
         # Thread-safe addition
         with self._pipeline_lock:
             self.pipelines.append(pipeline_config)
-            
+            self._cached_pipelines = list(self.pipelines)

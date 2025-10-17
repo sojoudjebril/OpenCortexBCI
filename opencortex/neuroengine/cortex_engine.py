@@ -119,15 +119,18 @@ class CortexEngine:
         )
         self.osc_thread.start()
 
-        # Core properties
+        # Cache frequently accessed board properties
         self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
         try:
             self.eeg_names = BoardShim.get_eeg_names(self.board_id)
         except Exception as e:
             log.warning("Could not get EEG channels, using default 8 channels, caused by: {}".format(e))
             self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
+        self.eeg_channels_len = len(self.eeg_channels)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.num_points = self.window_size * self.sampling_rate
+        self.ts_channel = self.board.get_timestamp_channel(self.board_id)
+        self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
 
         # Engine state
         self.running = False
@@ -135,55 +138,44 @@ class CortexEngine:
         self.first_prediction = True
 
         # Configuration
-        self.model = config.get('model', 'LDA')
-        self.proba = config.get('proba', False)
-        self.group_predictions = config.get('group_predictions', False)
-        self.nclasses = config.get('nclasses', 3)
-        self.flash_time = config.get('flash_time', 250)
-        self.epoch_length_ms = config.get('epoch_length_ms', 1000)
-        self.baseline_ms = config.get('baseline_ms', 100)
-        self.quality_thresholds = config.get('quality_thresholds',
-                                             [(-100, -50, 'yellow', 0.5), (-50, 50, 'green', 1.0),
-                                              (50, 100, 'yellow', 0.5)])
-        self.over_sample = config.get('oversample', True)
-        self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
-
-        lsl_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
-                       >> Parallel(
-            lsl=StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
-                             fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
-            socket=WebSocketServer(
-                name="WebSocketServerBandPowers",
-                host="0.0.0.0",
-                port=8766,
-                channel_names=self.eeg_names,
-                logger=log
-            ))
+        # lsl_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+        #                >> Parallel(
+        #     lsl=StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
+        #                      fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
+        #     socket=WebSocketServer(
+        #         name="WebSocketServerBandPowers",
+        #         host="0.0.0.0",
+        #         port=8766,
+        #         channel_names=self.eeg_names,
+        #         logger=log
+        #     ))
+        
+        lsl_pipeline = LogNode(name="LogRawData")
 
         # TODO uniform IN and OUT of nodes, add error checking and/or handling
         # TODO specialize Node in RawNode and EpochNode (NumPy node?)
 
-        signal_quality_pipeline = Sequential(
-            StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names + ["Trigger"],
-                         fs=self.sampling_rate,
-                         source_id=self.board.get_device_name(self.board_id)),
-            NotchFilterNode((50, 60), name='NotchFilter'),
-            BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
-            QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
-            Parallel(
-                lsl=StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names,
-                                 fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
-                socket=WebSocketServer(
-                    name="WebSocketServerQuality",
-                    host="0.0.0.0",
-                    port=8765,
-                    channel_names=self.eeg_names,
-                    logger=log
-                )),
-            name='SignalQualityPipeline'
-        )
+        # signal_quality_pipeline = Sequential(
+        #     StreamOutLSL(stream_type="eeg", name="CortexEEG", channels=self.eeg_names + ["Trigger"],
+        #                  fs=self.sampling_rate,
+        #                  source_id=self.board.get_device_name(self.board_id)),
+        #     NotchFilterNode((50, 60), name='NotchFilter'),
+        #     BandPassFilterNode(0.1, 30.0, name='BandPassFilter'),
+        #     QualityEstimator(quality_thresholds=self.quality_thresholds, name='QualityEstimator'),
+        #     Parallel(
+        #         lsl=StreamOutLSL(stream_type='quality', name='QualityLSL', channels=self.eeg_names,
+        #                          fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
+        #         socket=WebSocketServer(
+        #             name="WebSocketServerQuality",
+        #             host="0.0.0.0",
+        #             port=8765,
+        #             channel_names=self.eeg_names,
+        #             logger=log
+        #         )),
+        #     name='SignalQualityPipeline'
+        # )
 
-        self.onnx_session = ort.InferenceSession(str("model.onnx"))
+        # self.onnx_session = ort.InferenceSession(str("model.onnx"))
 
         classification_pipeline = Sequential(
             NotchFilterNode((50, 60), name="PowerlineNotch"),
@@ -217,7 +209,7 @@ class CortexEngine:
                     name="WebSocketServerInference",
                     host="0.0.0.0",
                     port=8767,
-                    channel_names=[f'Class{i}' for i in range(self.nclasses)],
+                    channel_names=[f'Class{i}' for i in range(4)],
                     logger=log
                 )
             ),
@@ -230,14 +222,14 @@ class CortexEngine:
                 pipeline=lsl_pipeline,
                 name="LSLStream"
             ),
-            PipelineConfig(
-                pipeline=signal_quality_pipeline,
-                name="SignalQuality"
-            ),
-            PipelineConfig(
-                pipeline=classification_pipeline,
-                name="Classifier"
-            )
+            # PipelineConfig(
+            #     pipeline=signal_quality_pipeline,
+            #     name="SignalQuality"
+            # ),
+            # PipelineConfig(
+            #     pipeline=classification_pipeline,
+            #     name="Classifier"
+            # )
 
         ]
 
@@ -253,31 +245,15 @@ class CortexEngine:
         self.raw_data = None
 
         # Threading and communication
-        self.executor = ThreadPoolExecutor(max_workers=5)
         self.command_queue = queue.Queue()
         self.main_thread = None
-        self.classifier = None
 
         # Interface callbacks (GUI, API, etc.)
         self.data_callbacks = []
         self.event_callbacks = []
 
-        # Timing calculations
-        # self._calculate_timing_parameters()
-
         logging.info("StreamEngine initialized")
 
-        # def _calculate_timing_parameters(self):
-        #     """Calculate timing parameters for predictions and epochs."""
-        #     self.off_time = (self.flash_time * (self.nclasses - 1))
-        #     self.prediction_interval = int(2 * self.flash_time + self.off_time)
-        #     self.epoch_data_points = int(self.epoch_length_ms * self.sampling_rate / 1000)
-        #     self.inference_ms = self.baseline_ms + (self.flash_time * self.nclasses) + self.epoch_length_ms
-        #     self.prediction_datapoints = int(self.inference_ms * self.sampling_rate / 1000)
-
-        #     self.slicing_trigger = (self.epoch_length_ms + self.baseline_ms) // self.flash_time
-        #     if self.slicing_trigger > self.nclasses:
-        #         self.slicing_trigger = self.nclasses
 
         # ===================== MAIN ENGINE CONTROL =====================
 
@@ -316,37 +292,48 @@ class CortexEngine:
 
         if self.main_thread:
             self.main_thread.join(timeout=5.0)
-
-        self.executor.shutdown(wait=True)
         logging.info("StreamEngine stopped")
+
+        if hasattr(self, 'pipeline') and hasattr(self.pipeline, 'shutdown'):
+            self.pipeline.shutdown()
+
 
     def _main_loop(self):
         """Main processing loop - runs independently."""
-        last_update = time.time()
+        last_update = time.perf_counter()
+        update_interval = self.update_interval_ms / 1000.0  # Convert ms to seconds
 
         while self.running:
-            current_time = time.time()
+            current_time = time.perf_counter()
 
             # Process commands from interfaces
             self._process_commands()
 
             # Update data at configured interval
-            if (current_time - last_update) * 1000 >= self.update_interval_ms:
+            if (current_time - last_update) >= update_interval:
                 try:
                     self._update_data()
                     last_update = current_time
                 except Exception as e:
                     logging.error(f"Error in main loop: {e}")
 
-            # Small sleep to prevent 100% CPU usage
-            time.sleep(0.001)  # TODO: check if needed (NOTE: on Greg's PC this reduces CPU load from ~20% to ~8%)
+            # Adaptive sleep (sleep exactly the remaining time)
+            elapsed = time.perf_counter() - current_time
+            sleep_time = max(0, update_interval - elapsed)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
     def _update_data(self):
         """Core data processing - heart of the engine."""
         try:
+            # Cache attributes locally (faster access)
+            eeg_channels = self.eeg_channels
+            eeg_channels_len = self.eeg_channels_len
+            num_points = self.num_points
+            sampling_rate = self.sampling_rate
+            
             # Get raw data from board
-            data = self.board.get_current_board_data(num_samples=self.num_points)
-            self.raw_data = data
+            data = self.board.get_current_board_data(num_samples=num_points)
 
             # Extract and filter EEG
             start_eeg = layouts[self.board_id]["eeg_start"]
@@ -354,17 +341,14 @@ class CortexEngine:
             eeg = data[start_eeg:end_eeg]
 
             # Update filtered buffer
-            for count, channel in enumerate(self.eeg_channels):
-                self.filtered_eeg[count] = eeg[count]
+            self.filtered_eeg[:eeg_channels_len] = eeg
 
-            # Extract trigger and timestamp
+            # Extract trigger channel
             trigger = data[-1]
-            ts_channel = self.board.get_timestamp_channel(self.board_id)
-            ts = data[ts_channel]
             self.filtered_eeg[-1] = trigger
 
-            raw = self.filtered_eeg[0:len(self.eeg_channels)].T
             # Process through pipeline
+            raw = self.filtered_eeg[0:len(self.eeg_channels)].T
             raw = convert_to_mne(eeg.T, trigger, fs=self.sampling_rate, chs=self.eeg_names, recompute=False)
             _ = self.pipeline(raw)
 
@@ -561,7 +545,6 @@ class CortexEngine:
         return {
             'running': self.running,
             'inference_mode': self.inference_mode,
-            'classifier_ready': self.classifier is not None,
             'board_id': self.board_id,
             'sampling_rate': self.sampling_rate,
             'eeg_channels': len(self.eeg_channels)
