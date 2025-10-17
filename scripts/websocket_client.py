@@ -66,7 +66,7 @@ async def main_loop(uri="ws://localhost:8765", verbose=False):
 
 def main():
     parser = argparse.ArgumentParser(description="WebSocket Data Receiver")
-    parser.add_argument("--uri", type=str, default="ws://localhost:8765", help="WebSocket server URI")
+    parser.add_argument("--uri", type=str, default="ws://localhost:8768", help="WebSocket server URI")
     parser.add_argument("-v", "--verbose", action="store_true", help="Show verbose message info")
     args = parser.parse_args()
 
