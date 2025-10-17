@@ -10,7 +10,7 @@ from typing import Optional, Callable, Tuple, Dict
 from opencortex.neuroengine.flux.base.node import Node
 
 
-class MetricNode(Node):
+class MetricsNode(Node):
     """
     Computes metrics on predictions.
     """

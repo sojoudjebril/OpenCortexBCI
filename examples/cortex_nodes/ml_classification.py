@@ -1,7 +1,7 @@
 from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.estimation.lightning import LightningNode
 from opencortex.neuroengine.flux.estimation.scikit import ScikitNode
-from opencortex.neuroengine.flux.evaluation.metrics import MetricNode
+from opencortex.neuroengine.flux.evaluation.metrics import MetricsNode
 from opencortex.neuroengine.flux.preprocessing.dataset import DatasetNode
 from opencortex.neuroengine.flux.preprocessing.epochs import EpochingNode
 from opencortex.neuroengine.flux.preprocessing.extract import ExtractNode
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     y_true = torch.cat([batch[1] for batch in val_loader], dim=0).numpy()
 
     # Compute metrics
-    metric_node = MetricNode(
+    metric_node = MetricsNode(
         scorers={
             'accuracy': accuracy_score,
             'f1': f1_score,
@@ -211,7 +211,7 @@ if __name__ == "__main__":
         return float(cm[0, 0] + cm[1, 1])  # True positives
 
 
-    custom_metric_node = MetricNode(
+    custom_metric_node = MetricsNode(
         scorers={'accuracy': accuracy_score},
         custom_scorers={
             'balanced_acc': balanced_accuracy,

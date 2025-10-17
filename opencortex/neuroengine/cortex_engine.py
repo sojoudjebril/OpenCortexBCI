@@ -86,7 +86,7 @@ class CortexEngine:
     DEFAULT_PORT = 8080
     INSTANCE_REGISTRY_FILE = "cortex_engine_registry.json"
 
-    def __init__(self, board, config, window_size=6):
+    def __init__(self, board, config, window_size=2):
         self.board = board
         self.config = config
         self.window_size = window_size
@@ -191,7 +191,7 @@ class CortexEngine:
                         picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
                         name='XyExtractor'),
             ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
-            DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=4, name='TestDataset'),
+            DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
             Parallel(
             model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference'),
             model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference2'),
@@ -201,7 +201,7 @@ class CortexEngine:
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
                 lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
-                                 channels=4,
+                                 channels=["Arousal", "Valence", "Metal Load", "Calmness"],
                                  logger=log,
                                  fs=self.sampling_rate,
                                  source_id=board.get_device_name(self.board_id)),
@@ -219,7 +219,7 @@ class CortexEngine:
 
         configs = [
             PipelineConfig(
-                pipeline=lsl_pipeline,
+                pipeline=powers_pipeline,
                 name="LSLStream"
             ),
             # PipelineConfig(
@@ -236,7 +236,7 @@ class CortexEngine:
         self.pipeline = PipelineGroup(
             pipelines=configs,
             name="CortexEnginePipeline",
-            max_workers=4,
+            max_workers=16,
             wait_for_all=False
         )
 

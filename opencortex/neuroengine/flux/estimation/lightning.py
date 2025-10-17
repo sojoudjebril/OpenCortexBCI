@@ -26,6 +26,7 @@ class LightningNode(Node):
             train_func: Optional[Callable] = None,
             eval_func: Optional[Callable] = None,
             checkpoint_path: Optional[Union[str, Path]] = None,
+            return_true_labels: bool = False,
             name: str = None,
             log: Optional[logging.Logger] = None
     ):
@@ -37,6 +38,7 @@ class LightningNode(Node):
             train_func: Custom training function (model, train_loader, val_loader) -> model
             eval_func: Custom eval function (model, val_loader) -> metrics
             checkpoint_path: Path to load checkpoint from
+            return_true_labels: If True, predict() returns (predictions, true_labels)
             name: Optional name for this node
             log: Optional logger
         """
@@ -49,6 +51,7 @@ class LightningNode(Node):
         self.checkpoint_path = checkpoint_path
         self.trainer = None
         self.is_trained = False
+        self.return_true_labels = return_true_labels
         self.log = log or logging.getLogger(__name__)
 
         # Load checkpoint if provided
@@ -106,18 +109,22 @@ class LightningNode(Node):
 
 
 
-    def predict(self, dataloader: Any) -> np.ndarray:
+    def predict(self, dataloader: Any) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
         """Make predictions."""
         if self.trainer is None:
             self.trainer = pl.Trainer(**self.trainer_config)
 
+        true_labels = dataloader.dataset.tensors[1].numpy()
         predictions = self.trainer.predict(self.model, dataloaders=dataloader)
         predictions = torch.cat(predictions, dim=0)
 
         if predictions.ndim > 1:
             predictions = predictions.argmax(dim=1)
 
-        return predictions.cpu().numpy()
+        if self.return_true_labels:
+            return predictions.cpu().numpy(), true_labels
+        else:
+            return predictions.cpu().numpy()
 
     def save_checkpoint(self, path: Union[str, Path]):
         """Save model checkpoint."""
