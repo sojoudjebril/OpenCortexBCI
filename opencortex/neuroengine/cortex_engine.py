@@ -4,7 +4,6 @@ CortexEngine - Main application controller and independent service
 Authors: Michele Romani, Gregorio Andrea Giudici
 """
 
-from asyncore import dispatcher
 import json
 import os
 from pathlib import Path
@@ -176,47 +175,47 @@ class CortexEngine:
             name='SignalQualityPipeline'
         )
 
-        # self.onnx_session = ort.InferenceSession(str("model.onnx"))
+        self.onnx_session = ort.InferenceSession(str("model.onnx"))
 
-        # classification_pipeline = Sequential(
-        #     NotchFilterNode((50, 60), name="PowerlineNotch"),
-        #     BandPassFilterNode(0.1, 30.0, name="ERPBand"),
-        #     EpochingNode(
-        #         mode='fixed_overlap',
-        #         duration=1.0,  # 2 second windows
-        #         overlap=.5,  # 1 second overlap (50%)
-        #         baseline=None,  # No baseline
-        #         name='OverlapEpochs'
-        #     ),
-        #     ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1},
-        #                 picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
-        #                 name='XyExtractor'),
-        #     ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
-        #     DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
-        #     Parallel(
-        #     model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference'),
-        #     model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference2'),
-        #     model_3=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference3'),
-        #     model_4=ONNXNode(model_path='model.onnx', session=self.onnx_session, name='ONNXInference4'),
-        #     ),
-        #     Aggregate(mode="list", name="AggregatePredictions"),
-        #     Parallel(
-        #         # lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
-        #         #                  channels=["Arousal", "Valence", "Metal Load", "Calmness"],
-        #         #                  logger=log,
-        #         #                  fs=self.sampling_rate,
-        #         #                  source_id=board.get_device_name(self.board_id)),
-        #         socket=WebSocketServer(
-        #             name="WebSocketServerInference",
-        #             host="0.0.0.0",
-        #             port=8767,
-        #             channel_names=[f"Class{i}" for i in range(4)],
-        #             logger=log
-        #         )
-        #     ),
-        #     name="Inference",
+        classification_pipeline = Sequential(
+            NotchFilterNode((50, 60), name="PowerlineNotch"),
+            BandPassFilterNode(0.1, 30.0, name="ERPBand"),
+            EpochingNode(
+                mode='fixed_overlap',
+                duration=1.0,  # 2 second windows
+                overlap=.5,  # 1 second overlap (50%)
+                baseline=None,  # No baseline
+                name='OverlapEpochs'
+            ),
+            ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1},
+                        picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
+                        name='XyExtractor'),
+            ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
+            DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
+            Parallel(
+            model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=1,name='ONNXInference'),
+            model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=0,name='ONNXInference2'),
+            model_3=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=1,name='ONNXInference3'),
+            model_4=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=0,name='ONNXInference4'),
+            ),
+            Aggregate(mode="list", name="AggregatePredictions"),
+            Parallel(
+                # lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
+                #                  channels=["Arousal", "Valence", "Metal Load", "Calmness"],
+                #                  logger=log,
+                #                  fs=self.sampling_rate,
+                #                  source_id=board.get_device_name(self.board_id)),
+                socket=WebSocketServer(
+                    name="WebSocketServerInference",
+                    host="0.0.0.0",
+                    port=8767,
+                    channel_names=[f"Class{i}" for i in range(4)],
+                    logger=log
+                )
+            ),
+            name="Inference",
 
-        # )
+        )
 
         configs = [
             # PipelineConfig(
@@ -227,10 +226,10 @@ class CortexEngine:
                 pipeline=signal_quality_pipeline,
                 name="SignalQuality"
             ),
-            # PipelineConfig(
-            #     pipeline=classification_pipeline,
-            #     name="Classifier"
-            # )
+            PipelineConfig(
+                 pipeline=classification_pipeline,
+                 name="Classifier"
+            )
 
         ]
 
