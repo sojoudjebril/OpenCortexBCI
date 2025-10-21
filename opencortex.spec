@@ -17,6 +17,7 @@ a = Analysis(
     binaries=mne_binaries + brainflow_binaries,  # Add brainflow binaries
     datas=[
         ('opencortex/configs/*.yaml', 'opencortex/configs'),
+        ('opencortex/neuroengine/model.onnx', 'models')
     ] + mne_datas + brainflow_datas + imblearn_datas,  # Add imblearn data files
     hiddenimports=[
         'lazy_loader',
