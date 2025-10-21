@@ -8,6 +8,9 @@ import numpy as np
 import logging
 import threading
 from typing import Optional, Callable, Tuple, Any, Dict, Union
+
+from scipy.special import softmax
+
 from opencortex.neuroengine.flux.base.node import Node
 from pathlib import Path
 
@@ -22,6 +25,9 @@ class ONNXNode(Node):
             self,
             model_path: Union[str, Path],
             session = None,
+            return_proba: bool = False,
+            binary_threshold: float = 0.5,
+            binary_pos_label: int = 1,
             name: str = None
     ):
         """
@@ -30,6 +36,9 @@ class ONNXNode(Node):
         """
         super().__init__(name or "ONNX")
         self.model_path = Path(model_path)
+        self.return_proba = return_proba
+        self.threshold = binary_threshold
+        self.binary_pos_label = binary_pos_label
 
         if session is not None:
             self.session = session
@@ -65,10 +74,14 @@ class ONNXNode(Node):
         predictions = outputs[0]
 
         # Convert to class labels if needed
-        if predictions.ndim > 1:
-            predictions = predictions.argmax(axis=1)
+        if predictions.ndim > 1 and not self.return_proba:
+            return np.argmax(predictions, axis=1)
+        elif predictions.ndim == 1 and not self.return_proba:
+            return (predictions > self.threshold).astype(int)
+        else:
+            predicted = softmax(predictions, axis=1)
 
-        return predictions
+            return np.squeeze(predicted)[self.binary_pos_label]
 
     def _extract_data(self, loader: Any) -> np.ndarray:
         """Extract data from dataloader."""

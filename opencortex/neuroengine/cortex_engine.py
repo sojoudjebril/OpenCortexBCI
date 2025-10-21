@@ -223,6 +223,7 @@ class CortexEngine:
             name="Inference",
 
         )
+        )
 
         configs = [
             PipelineConfig(
