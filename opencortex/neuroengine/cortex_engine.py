@@ -111,11 +111,11 @@ class CortexEngine:
         dispatcher = Dispatcher()
         dispatcher.map("/filter", print)
         # Create a server listening on the assigned port for OSC messages from everywhere
-        self.osc_server = osc_server.ThreadingOSCUDPServer(
+        self.cmd_server = osc_server.ThreadingOSCUDPServer(
             ("0.0.0.0", self.assigned_port), dispatcher)
         logging.info(f"OSC server listening on port {self.assigned_port}")
         self.osc_thread = threading.Thread(
-            target=self.osc_server.serve_forever,
+            target=self.cmd_server.serve_forever,
             daemon=True  # Ensures thread won't block shutdown
         )
         self.osc_thread.start()
@@ -135,8 +135,6 @@ class CortexEngine:
 
         # Engine state
         self.running = False
-        self.inference_mode = False
-        self.first_prediction = True
 
         # Configuration
         band_power_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
@@ -200,10 +198,10 @@ class CortexEngine:
             ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
             DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
             Parallel(
-            model_1=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference'),
-            model_2=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference2'),
-            model_3=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference3'),
-            model_4=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference4'),
+            model_1=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference'),
+            model_2=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference2'),
+            model_3=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference3'),
+            model_4=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference4'),
             ),
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
@@ -222,7 +220,6 @@ class CortexEngine:
             ),
             name="Inference",
 
-        )
         )
 
         configs = [
@@ -288,9 +285,9 @@ class CortexEngine:
         self.event_callbacks.clear()
 
         # Stop OSC server
-        if self.osc_server:
-            self.osc_server.shutdown()
-            self.osc_server.server_close()
+        if self.cmd_server:
+            self.cmd_server.shutdown()
+            self.cmd_server.server_close()
             logging.info("OSC server stopped")
 
         # Unregister instance
@@ -552,7 +549,6 @@ class CortexEngine:
         """Get current engine status."""
         return {
             'running': self.running,
-            'inference_mode': self.inference_mode,
             'board_id': self.board_id,
             'sampling_rate': self.sampling_rate,
             'eeg_channels': len(self.eeg_channels)

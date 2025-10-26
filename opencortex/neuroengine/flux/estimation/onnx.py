@@ -25,7 +25,7 @@ class ONNXNode(Node):
             self,
             model_path: Union[str, Path],
             session = None,
-            return_proba: bool = False,
+            return_proba: bool = True,
             binary_threshold: float = 0.5,
             binary_pos_label: int = 1,
             name: str = None
