@@ -173,7 +173,7 @@ class CortexEngine:
                 )),
             name='SignalQualityPipeline'
         )
-        
+
         if hasattr(sys, '_MEIPASS'):
             base_path = os.path.join(sys._MEIPASS, "models")
         else:
@@ -202,6 +202,10 @@ class CortexEngine:
             model_2=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference2'),
             model_3=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference3'),
             model_4=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference4'),
+            model_1=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference', return_proba=True),
+            model_2=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference2', return_proba=True),
+            model_3=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference3', return_proba=True),
+            model_4=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference4', return_proba=True),
             ),
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
