@@ -16,6 +16,7 @@ import numpy as np
 import logging
 import queue
 import onnxruntime as ort
+import sys
 
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any, Callable
@@ -138,17 +139,17 @@ class CortexEngine:
         self.first_prediction = True
 
         # Configuration
-        # band_power_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
-        #                >> Parallel(
-        #     lsl=StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
-        #                      fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
-        #     socket=WebSocketServer(
-        #         name="WebSocketServerBandPowers",
-        #         host="0.0.0.0",
-        #         port=8766,
-        #         channel_names=self.eeg_names,
-        #         logger=log
-        #     ))
+        band_power_pipeline = BandPowerExtractor(fs=self.sampling_rate, ch_names=self.eeg_names) \
+                       >> Parallel(
+            lsl=StreamOutLSL(stream_type='band_powers', name='BandPowerLSL', channels=self.eeg_names,
+                             fs=self.sampling_rate, source_id=board.get_device_name(self.board_id)),
+            socket=WebSocketServer(
+                name="WebSocketServerBandPowers",
+                host="0.0.0.0",
+                port=8766,
+                channel_names=self.eeg_names,
+                logger=log
+            ))
         
         # # TODO uniform IN and OUT of nodes, add error checking and/or handling
         # # TODO specialize Node in RawNode and EpochNode (NumPy node?)
@@ -175,7 +176,13 @@ class CortexEngine:
             name='SignalQualityPipeline'
         )
 
-        self.onnx_session = ort.InferenceSession(str("model.onnx"))
+        if hasattr(sys, '_MEIPASS'):
+            base_path = os.path.join(sys._MEIPASS, "models")
+        else:
+            base_path = os.path.abspath(".")
+
+        model_path = os.path.join(base_path, "model.onnx")
+        self.onnx_session = ort.InferenceSession(model_path)
 
         classification_pipeline = Sequential(
             NotchFilterNode((50, 60), name="PowerlineNotch"),
@@ -193,10 +200,10 @@ class CortexEngine:
             ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
             DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
             Parallel(
-            model_1=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=1,name='ONNXInference'),
-            model_2=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=0,name='ONNXInference2'),
-            model_3=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=1,name='ONNXInference3'),
-            model_4=ONNXNode(model_path='model.onnx', session=self.onnx_session, return_proba=True, binary_pos_label=0,name='ONNXInference4'),
+            model_1=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference'),
+            model_2=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference2'),
+            model_3=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference3'),
+            model_4=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference4'),
             ),
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
@@ -209,7 +216,7 @@ class CortexEngine:
                     name="WebSocketServerInference",
                     host="0.0.0.0",
                     port=8767,
-                    channel_names=[f"Class{i}" for i in range(4)],
+                    channel_names=["Arousal", "Valence", "Focus", "Calm"],
                     logger=log
                 )
             ),
@@ -218,17 +225,17 @@ class CortexEngine:
         )
 
         configs = [
-            # PipelineConfig(
-            #     pipeline=band_power_pipeline,
-            #     name="LSLStream"
-            # ),
+            PipelineConfig(
+                pipeline=band_power_pipeline,
+                name="LSLStream"
+            ),
             PipelineConfig(
                 pipeline=signal_quality_pipeline,
                 name="SignalQuality"
             ),
             PipelineConfig(
-                 pipeline=classification_pipeline,
-                 name="Classifier"
+                pipeline=classification_pipeline,
+                name="Classifier"
             )
 
         ]
