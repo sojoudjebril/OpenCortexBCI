@@ -200,10 +200,10 @@ class CortexEngine:
             ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
             DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
             Parallel(
-            model_1=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference'),
-            model_2=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference2'),
-            model_3=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference3'),
-            model_4=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference4'),
+            model_1=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference', return_proba=True),
+            model_2=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference2', return_proba=True),
+            model_3=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference3', return_proba=True),
+            model_4=ONNXNode(model_path=model_path, session=self.onnx_session, name='ONNXInference4', return_proba=True),
             ),
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(

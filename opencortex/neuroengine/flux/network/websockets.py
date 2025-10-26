@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import threading
+import time
 from typing import List, Set, Union
 from mne.io import RawArray
 import numpy as np
@@ -25,6 +26,7 @@ class WebSocketServer(Node):
         self.clients: Set[WebSocketServerProtocol] = set()
         self.server = None
         self.logger = logger or logging.getLogger(__name__)
+        self.packet_counter = 0
 
         # Store the main loop
         try:
@@ -107,7 +109,13 @@ class WebSocketServer(Node):
         if isinstance(payload, dict):
             payload = {k: float(v) if isinstance(v, (int, float, np.integer, np.floating)) else v for k, v in payload.items()}
 
-        payload = json.dumps(payload)
+        packet = {
+            "timestamp": time.perf_counter(),
+            "data": payload,
+            "packet_id": self.packet_counter
+        }
+
+        packet = json.dumps(packet)
 
 
         self.logger.info(f"{self.name}: Payload prepared: {payload}")
@@ -115,7 +123,8 @@ class WebSocketServer(Node):
         # Send safely to clients via main loop
         try:
             # self.logger.info(f"{self.name}: Sending data via WebSocket: {payload}")
-            asyncio.run_coroutine_threadsafe(self._send_to_clients(payload), self.loop)
+            asyncio.run_coroutine_threadsafe(self._send_to_clients(packet), self.loop)
+            self.packet_counter += 1
         except Exception as e:
             self.logger.error(f"{self.name}: Error sending data via WebSocket: {e}")
 
