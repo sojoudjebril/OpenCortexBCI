@@ -102,6 +102,34 @@ def run_headless():
     params.master_board = args.master_board
 
     try:
+        devices = retrieve_eeg_devices()
+        win = QtWidgets.QApplication([])
+        config_files = os.listdir(os.path.join(base_dir, 'configs'))
+        config_files = [f for f in config_files if f.endswith('.yaml')]
+        dialog = SetupDialog(devices, config_files=config_files)
+        window_size = 0
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            selected_device, window_size, log_level, config_file = dialog.get_data()
+            logging.info(f"Selected Device: {selected_device}")
+            logging.info(f"Window Size: {window_size} seconds")
+            logging.info(f"Logging set to level: {log_level}")
+            logging.getLogger().setLevel(logging_levels[log_level])
+            args.serial_number = selected_device
+            args.board_id = retrieve_board_id(args.serial_number)
+            args.config_file = config_file
+        else:
+            logging.info("Setup dialog cancelled")
+            return
+
+    except BaseException as e:
+        logging.info('Impossible to connect device', e)
+        return
+
+    window_size = 1 if window_size == 0 else int(window_size)
+    com_ports = get_com_ports()
+    params.serial_number = args.serial_number
+
+    try:
         # Connect to board
         board_shim = BoardShim(args.board_id, params)
         board_shim.prepare_session()
@@ -265,7 +293,7 @@ def run():
     if '--headless' in sys.argv:
         run_headless()
     else:
-        run_headless()
+        run_gui()
 
 class StreamerGUIService:
     """
