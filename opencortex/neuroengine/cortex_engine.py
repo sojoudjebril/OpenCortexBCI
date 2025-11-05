@@ -35,6 +35,7 @@ from opencortex.neuroengine.flux.base.sequential import Sequential
 from opencortex.neuroengine.flux.estimation.lightning import LightningNode
 from opencortex.neuroengine.flux.estimation.onnx import ONNXNode
 from opencortex.neuroengine.flux.features.band_power import BandPowerExtractor
+from opencortex.neuroengine.flux.features.band_signal import BandSignalExtractor
 from opencortex.neuroengine.flux.features.quality_estimator import QualityEstimator
 from opencortex.neuroengine.flux.network.sockets import WebSocketOutNode
 from opencortex.neuroengine.flux.network.websockets import WebSocketServer
@@ -182,21 +183,60 @@ class CortexEngine:
         model_path = os.path.join(base_path, "model.onnx")
         self.onnx_session = ort.InferenceSession(model_path)
 
+        # classification_pipeline = Sequential(
+        #     NotchFilterNode((50, 60), name="PowerlineNotch"),
+        #     BandPassFilterNode(0.1, 30.0, name="ERPBand"),
+        #     EpochingNode(
+        #         mode='fixed_overlap',
+        #         duration=1.0,  # 2 second windows
+        #         overlap=.5,  # 1 second overlap (50%)
+        #         baseline=None,  # No baseline
+        #         name='OverlapEpochs'
+        #     ),
+        #     ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1},
+        #                 picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
+        #                 name='XyExtractor'),
+        #     ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
+        #     DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
+        #     Parallel(
+        #     model_1=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference'),
+        #     model_2=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference2'),
+        #     model_3=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference3'),
+        #     model_4=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference4'),
+        #     ),
+        #     Aggregate(mode="list", name="AggregatePredictions"),
+        #     Parallel(
+        #         # lsl=StreamOutLSL(stream_type='inference', name='InferenceLSL',
+        #         #                  channels=["Arousal", "Valence", "Metal Load", "Calmness"],
+        #         #                  logger=log,
+        #         #                  fs=self.sampling_rate,
+        #         #                  source_id=board.get_device_name(self.board_id)),
+        #         socket=WebSocketServer(
+        #             name="WebSocketServerInference",
+        #             host="0.0.0.0",
+        #             port=8767,
+        #             channel_names=["Arousal", "Valence", "Focus", "Calm"],
+        #             logger=log
+        #         )
+        #     ),
+        #     name="Inference",
+
+        # )
+        
         classification_pipeline = Sequential(
             NotchFilterNode((50, 60), name="PowerlineNotch"),
-            BandPassFilterNode(0.1, 30.0, name="ERPBand"),
-            EpochingNode(
-                mode='fixed_overlap',
-                duration=1.0,  # 2 second windows
-                overlap=.5,  # 1 second overlap (50%)
-                baseline=None,  # No baseline
-                name='OverlapEpochs'
+            BandPassFilterNode(0.1, 30.0, name="BandPassFilter"),
+            BandSignalExtractor(
+                fs=self.sampling_rate,
+                ch_names=self.eeg_names,
+                name="BandSignalExtractor",
+                freq_bands={
+                    "theta": (4, 8),
+                    "alpha": (8, 14),
+                    "beta": (14, 31),
+                    "gamma": (31, 49)
+                }
             ),
-            ExtractNode(label_encoder=LabelEncoder(), apply_label_encoding=True, label_mapping={1: 0, 3: 1},
-                        picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8'],
-                        name='XyExtractor'),
-            ScalerNode(scaler=StandardScaler(), per_channel=True, name='StdScaler'),
-            DatasetNode(split_size=0.0, batch_size=1, shuffle=False, num_workers=0, name='TestDataset'),
             Parallel(
             model_1=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference'),
             model_2=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference2'),
@@ -223,14 +263,14 @@ class CortexEngine:
         )
 
         configs = [
-            PipelineConfig(
-                pipeline=band_power_pipeline,
-                name="LSLStream"
-            ),
-            PipelineConfig(
-                pipeline=signal_quality_pipeline,
-                name="SignalQuality"
-            ),
+            # PipelineConfig(
+            #     pipeline=band_power_pipeline,
+            #     name="LSLStream"
+            # ),
+            # PipelineConfig(
+            #     pipeline=signal_quality_pipeline,
+            #     name="SignalQuality"
+            # ),
             PipelineConfig(
                 pipeline=classification_pipeline,
                 name="Classifier"
