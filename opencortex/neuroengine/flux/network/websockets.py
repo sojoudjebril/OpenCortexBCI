@@ -30,7 +30,7 @@ class WebSocketServer(Node):
 
         # Store the main loop
         try:
-            self.loop = asyncio.get_running_loop()
+            self.loop = asyncio.get_running_loop() # TODO: pass existiing asyncio loop
         except RuntimeError:
             # No running loop; create one (for server)
             self.loop = asyncio.new_event_loop()
@@ -93,16 +93,16 @@ class WebSocketServer(Node):
         else:
             raise ValueError("Unsupported data type for WebSocketNode")
 
-        self.logger.info(f"{self.name}: Preparing to send data: {data}")
+        # self.logger.info(f"{self.name}: Preparing to send data: {data}")
 
         # Wrap into a dictionary with optional channel names
         if isinstance(data, list) and self.channel_names and len(self.channel_names) == len(data):
             payload = dict(zip(self.channel_names, data))
-            self.logger.info(f"{self.name}: Channel names provided, sending structured data: {payload}")
+            # self.logger.info(f"{self.name}: Channel names provided, sending structured data: {payload}")
         else:
             payload = {"data": data}
         
-        self.logger.info(f"{self.name}: Data prepared: {payload}")
+        # self.logger.info(f"{self.name}: Data prepared: {payload}")
 
         # Convert any numpy types to native Python types for JSON serialization. 
         # numpy int64 values are not JSON serializable by default and need to be converted to float or int.
