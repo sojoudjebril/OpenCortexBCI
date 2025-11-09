@@ -182,8 +182,12 @@ class CortexEngine:
         else:
             base_path = os.path.abspath(".")
 
-        model_path = os.path.join(base_path, "pacnet_8e_stew.onnx")
-        self.onnx_session = ort.InferenceSession(model_path)
+        stew_model_path = os.path.join(base_path, "pacnet_8e_stew.onnx")
+        arousal_model_path = os.path.join(base_path, "pacnet_8e_deap_arousal.onnx")
+        valence_model_path = os.path.join(base_path, "pacnet_8e_deap_valence.onnx")
+        self.onnx_session_stew = ort.InferenceSession(stew_model_path)
+        self.onnx_session_arouasl = ort.InferenceSession(arousal_model_path)
+        self.onnx_session_valence = ort.InferenceSession(valence_model_path)
 
         # classification_pipeline = Sequential(
         #     NotchFilterNode((50, 60), name="PowerlineNotch"),
@@ -242,10 +246,10 @@ class CortexEngine:
                 picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8']
             ),
             Parallel(
-            model_1=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference'),
-            model_2=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference2'),
-            model_3=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXFocus'),
-            model_4=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXCalm'),
+            model_1=ONNXNode(model_path=arousal_model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session_valence, name='ONNXArousal'),
+            model_2=ONNXNode(model_path=valence_model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session_arouasl, name='ONNXValence'),
+            model_3=ONNXNode(model_path=stew_model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session_stew, name='ONNXFocus'),
+            model_4=ONNXNode(model_path=stew_model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session_stew, name='ONNXCalm'),
             ),
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
