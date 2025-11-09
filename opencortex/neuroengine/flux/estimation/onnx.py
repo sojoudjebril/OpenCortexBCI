@@ -28,17 +28,25 @@ class ONNXNode(Node):
             return_proba: bool = True,
             binary_threshold: float = 0.5,
             binary_pos_label: int = 1,
+            add_batch_dim: bool = True,
             name: str = None
     ):
         """
         Args:
             model_path: Path to ONNX model (.onnx)
+            session: Pre-initialized ONNX Runtime session (optional)
+            return_proba: If True, return probabilities; else return class labels
+            binary_threshold: Threshold for binary classification (if return_proba is False)
+            binary_pos_label: Index of positive class for binary classification
+            add_batch_dim: If True, add batch dimension to input data
+            name: Optional name for this node
         """
         super().__init__(name or "ONNX")
         self.model_path = Path(model_path)
         self.return_proba = return_proba
         self.threshold = binary_threshold
         self.binary_pos_label = binary_pos_label
+        self.add_batch_dim = add_batch_dim
 
         if session is not None:
             self.session = session
@@ -70,8 +78,15 @@ class ONNXNode(Node):
             # Ensure float32
             X = X.astype(np.float32)
 
+            if self.add_batch_dim:
+                X = X.reshape(1, *X.shape)
+
             # Run inference
-            outputs = self.session.run(None, {self.input_name: X})
+            try:
+                outputs = self.session.run(None, {self.input_name: X})
+            except Exception as e:
+                logging.error(f"{self.name}: ONNX inference failed - {e} with input shape {X.shape} and {self.add_batch_dim} batch dim parameter activated. If your model does not expect a batch dimension, please set add_batch_dim to False.")
+                raise e
             predictions = outputs[0]
 
             # Convert to class labels if needed
