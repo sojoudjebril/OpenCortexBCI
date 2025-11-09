@@ -244,8 +244,8 @@ class CortexEngine:
             Parallel(
             model_1=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference'),
             model_2=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference2'),
-            model_3=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference3'),
-            model_4=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXInference4'),
+            model_3=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXFocus'),
+            model_4=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=0, session=self.onnx_session, name='ONNXCalm'),
             ),
             Aggregate(mode="list", name="AggregatePredictions"),
             Parallel(
