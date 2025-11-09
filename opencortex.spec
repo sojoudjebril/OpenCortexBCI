@@ -18,7 +18,9 @@ a = Analysis(
     datas=[
         ('opencortex/configs/*.yaml', 'opencortex/configs'),
         ('opencortex/model.onnx', 'models'),
-        ('opencortex/pacnet_8e_stew.onnx', 'models')
+        ('opencortex/pacnet_8e_stew.onnx', 'models'),
+        ('opencortex/pacnet_8e_deap_arousal.onnx', 'models'),
+        ('opencortex/pacnet_8e_deap_valence.onnx', 'models')
     ] + mne_datas + brainflow_datas + imblearn_datas,  # Add imblearn data files
     hiddenimports=[
         'lazy_loader',
