@@ -130,10 +130,25 @@ def run_headless():
     params.serial_number = args.serial_number
 
     try:
-        # Connect to board
-        board_shim = BoardShim(args.board_id, params)
-        board_shim.prepare_session()
-        board_shim.start_stream(streamer_params=args.streamer_params)
+        if args.board_id in serial_devices:
+            logging.info(f"Attempting to connect to serial device {args.board_id}")
+            for com_port in com_ports:
+                try:
+                    params.serial_port = com_port
+                    board_shim = BoardShim(args.board_id, params)
+                    board_shim.prepare_session()
+                    board_shim.start_stream(streamer_params=args.streamer_params)
+                    logging.info(f"Connected to {com_port}")
+                    if board_shim is None:
+                        raise Exception("Could not connect to any COM port")
+                    break
+                except BaseException:
+                    logging.warning(f'Could not connect to port {com_port}, trying next one')
+        else:
+            # Connect to board
+            board_shim = BoardShim(args.board_id, params)
+            board_shim.prepare_session()
+            board_shim.start_stream(streamer_params=args.streamer_params)
 
         # Create headless StreamEngine
         engine = HeadlessCortexEngine(board_shim, config, args.window_size, args.log_file)
