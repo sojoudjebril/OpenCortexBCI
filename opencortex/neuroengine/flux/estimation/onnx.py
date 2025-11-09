@@ -60,28 +60,32 @@ class ONNXNode(Node):
         Returns:
             Predictions
         """
-        # Handle DataLoader
-        if hasattr(data, '__iter__') and not isinstance(data, np.ndarray):
-            X = self._extract_data(data)
-        else:
-            X = data
+        try:
+            # Handle DataLoader
+            if hasattr(data, '__iter__') and not isinstance(data, np.ndarray):
+                X = self._extract_data(data)
+            else:
+                X = data
 
-        # Ensure float32
-        X = X.astype(np.float32)
+            # Ensure float32
+            X = X.astype(np.float32)
 
-        # Run inference
-        outputs = self.session.run(None, {self.input_name: X})
-        predictions = outputs[0]
+            # Run inference
+            outputs = self.session.run(None, {self.input_name: X})
+            predictions = outputs[0]
 
-        # Convert to class labels if needed
-        if predictions.ndim > 1 and not self.return_proba:
-            return np.argmax(predictions, axis=1)
-        elif predictions.ndim == 1 and not self.return_proba:
-            return (predictions > self.threshold).astype(int)
-        else:
-            predicted = softmax(predictions, axis=1)
+            # Convert to class labels if needed
+            if predictions.ndim > 1 and not self.return_proba:
+                return np.argmax(predictions, axis=1)
+            elif predictions.ndim == 1 and not self.return_proba:
+                return (predictions > self.threshold).astype(int)
+            else:
+                predicted = softmax(predictions, axis=1)
 
-            return np.squeeze(predicted)[self.binary_pos_label]
+                return np.squeeze(predicted)[self.binary_pos_label]
+        except Exception as e:
+            logging.error(f"{self.name}: Error during ONNX inference - {e}")
+            raise e
 
     def _extract_data(self, loader: Any) -> np.ndarray:
         """Extract data from dataloader."""

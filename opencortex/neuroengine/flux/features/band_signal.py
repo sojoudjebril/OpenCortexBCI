@@ -18,7 +18,7 @@ class BandSignalExtractor(Node):
         Output shape: (bands, channels, samples)
     """
 
-    def __init__(self, fs: int, ch_names: list, name: str = None, freq_bands: dict = None, order: int = 5):
+    def __init__(self, fs: int, ch_names: list, name: str = None, freq_bands: dict = None, order: int = 5, picks: list = "eeg"):
         super().__init__(name or "BandSignalExtractor")
         self.fs = fs
         self.ch_names = ch_names
@@ -29,11 +29,12 @@ class BandSignalExtractor(Node):
             "gamma": (31, 49)
         }
         self.order = order
+        self.picks = picks
 
     def __call__(self, data):
         try:
             if isinstance(data, RawArray):
-                data = data.get_data(picks='eeg')
+                data = data.get_data(picks=self.picks)
             band_signals = []
             for band, (low_freq, high_freq) in self.freq_bands.items():
                 # Bandpass filter the data for each frequency bands
@@ -41,7 +42,7 @@ class BandSignalExtractor(Node):
                 band_signals.append(band_signal)
             return np.array(band_signals)
         except Exception as e:
-            self.log.error(f"{self.name}: Error extracting band signals - {e}")
+            print(f"{self.name}: Error extracting band signals - {e}")
             raise e
 
     def bandpass_filter(self, data, low_freq, high_freq):

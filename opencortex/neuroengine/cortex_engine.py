@@ -44,6 +44,7 @@ from opencortex.neuroengine.flux.pipeline_config import PipelineConfig
 from opencortex.neuroengine.flux.pipeline_group import PipelineGroup
 from opencortex.neuroengine.flux.preprocessing.bandpass import BandPassFilterNode
 from opencortex.neuroengine.flux.preprocessing.dataset import DatasetNode
+from opencortex.neuroengine.flux.preprocessing.downsample import DownsampleNode
 from opencortex.neuroengine.flux.preprocessing.epochs import EpochingNode
 from opencortex.neuroengine.flux.preprocessing.extract import ExtractNode
 from opencortex.neuroengine.flux.preprocessing.notch import NotchFilterNode
@@ -130,6 +131,7 @@ class CortexEngine:
             self.eeg_names = ["CPz", "P1", "Pz", "P2", "PO3", "POz", "PO4", "Oz"]
         self.eeg_channels_len = len(self.eeg_channels)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
+        self.resample_rate =  128
         self.num_points = self.window_size * self.sampling_rate
         self.ts_channel = self.board.get_timestamp_channel(self.board_id)
         self.update_interval_ms = config.get('update_buffer_speed_ms', 50)
@@ -180,7 +182,7 @@ class CortexEngine:
         else:
             base_path = os.path.abspath(".")
 
-        model_path = os.path.join(base_path, "model.onnx")
+        model_path = os.path.join(base_path, "pacnet_8e_stew.onnx")
         self.onnx_session = ort.InferenceSession(model_path)
 
         # classification_pipeline = Sequential(
@@ -220,14 +222,15 @@ class CortexEngine:
         #         )
         #     ),
         #     name="Inference",
-
+        #
         # )
         
         classification_pipeline = Sequential(
             NotchFilterNode((50, 60), name="PowerlineNotch"),
             BandPassFilterNode(0.1, 30.0, name="BandPassFilter"),
+            DownsampleNode(target_sfreq=self.resample_rate, name='Downsample'),
             BandSignalExtractor(
-                fs=self.sampling_rate,
+                fs=self.resample_rate,
                 ch_names=self.eeg_names,
                 name="BandSignalExtractor",
                 freq_bands={
@@ -235,7 +238,8 @@ class CortexEngine:
                     "alpha": (8, 14),
                     "beta": (14, 31),
                     "gamma": (31, 49)
-                }
+                },
+                picks=['Fz', 'C3', 'Cz', 'C4', 'Pz', 'PO7', 'Oz', 'PO8']
             ),
             Parallel(
             model_1=ONNXNode(model_path=model_path, return_proba=True, binary_pos_label=1, session=self.onnx_session, name='ONNXInference'),
@@ -263,14 +267,14 @@ class CortexEngine:
         )
 
         configs = [
-            # PipelineConfig(
-            #     pipeline=band_power_pipeline,
-            #     name="LSLStream"
-            # ),
-            # PipelineConfig(
-            #     pipeline=signal_quality_pipeline,
-            #     name="SignalQuality"
-            # ),
+            PipelineConfig(
+                pipeline=band_power_pipeline,
+                name="LSLStream"
+            ),
+            PipelineConfig(
+                pipeline=signal_quality_pipeline,
+                name="SignalQuality"
+            ),
             PipelineConfig(
                 pipeline=classification_pipeline,
                 name="Classifier"
@@ -281,7 +285,7 @@ class CortexEngine:
         self.pipeline = PipelineGroup(
             pipelines=configs,
             name="CortexEnginePipeline",
-            max_workers=16,
+            max_workers=4,
             wait_for_all=True
         )
 
